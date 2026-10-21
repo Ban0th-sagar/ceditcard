@@ -1,4 +1,4 @@
-# Relay — Phase 1 credit routing prototype
+# Relay — Premium mobile credit routing prototype
 
 Expo + React Native + TypeScript UI and a FastAPI backend. All cards, eligibility
 policies, fees, interest, and recommendations are **mock simulations**. Issuer
@@ -106,15 +106,17 @@ CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
 The nine Python tests cover portfolio totals, eligible/ineligible routes, six
-checks, amount/route limits, unknown cards, and lowest-cost selection. The three
-Playwright tests cover the acceptance demo at a phone viewport, all five API
-endpoints and invalid HTTP inputs, and invalid amount feedback. No separate
+checks, amount/route limits, unknown cards, and lowest-cost selection. The six
+Playwright tests preserve the acceptance demo at a phone viewport, all five API
+endpoints and invalid HTTP inputs, and invalid amount feedback, and add tabs,
+all four card details, recommendation disclosure, simulated session activity,
+and portfolio error/empty-state recovery. No separate
 lint script is configured.
 
 ## Acceptance demo (issue #1)
 
 1. Open the dashboard and inspect the four mock cards and next-due summary.
-2. Tap **Optimize my credit**. Source defaults to **ICICI Amazon Pay**, destination
+2. Tap **Optimize My Credit**. Source defaults to **ICICI Amazon Pay**, destination
    to **HDFC Regalia**; amount defaults to **₹10,000**.
 3. Tap **Check eligibility & optimize**. All six checks pass; all four quotes
    appear. Card-to-Card is recommended with a simulated total of **₹10,125**.
@@ -130,3 +132,31 @@ the earliest mock due date. The normal-repayment quote illustrates carrying a
 balance rather than interest-free full repayment; all prices are illustrative,
 not validated offers or financial advice. There is no authentication,
 persistence, transaction submission, or real issuer/network integration.
+
+## Phase 2 UI (issue #3)
+
+Five persistent bottom tabs — Home, Cards, Optimize, Activity, Profile — use an
+original ink/slate, citron, and sea-glass design. Optimize is the highlighted
+center action. Shared tokens and primitives live in `mobile/src/theme.ts` and
+`mobile/src/components/UI.tsx`; screen composition is in `mobile/src/screens/`.
+No new runtime dependencies or backend changes are required. Run commands above
+are unchanged.
+
+- Home: demo-user greeting, API portfolio metrics, next due card, four tappable
+  cards, API-derived bill schedule, and an illustrative portfolio insight.
+- Cards: all card metrics plus detailed masked card faces, utilization meters,
+  due dates, minimum dues, and explicitly simulated recent activity.
+- Optimize: source/destination choices, amount, six checks, four quotes, and an
+  expandable **Why this recommendation?** explaining the API-selected route.
+- Activity: actual optimization checks from the current session, plus labeled
+  illustrative history. History resets on reload; it never records a payment.
+- Profile: demo identity, Simulation Mode, integration/credential boundaries,
+  product and version.
+
+For the Phase 2 demo, inspect Home, open each bottom tab, and open a card from
+Cards. Use **Optimize My Credit**, run the Phase 1 acceptance demo above, and
+expand **Why this recommendation?**. Rerun with Axis as source, then open Activity
+to see the passing and ineligible checks. Profile explains simulation mode.
+Loading, network-failure retry, and empty-card refresh states are included.
+Native Android/iOS rendering remains unverified; automated UI validation uses
+a Chromium browser at a 390 × 844 viewport.
