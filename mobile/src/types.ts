@@ -1,3 +1,4 @@
+import type { OfferQuote, OfferReference, OfferReasonCode } from "./offerTypes";
 export type Card = {
   id: string;
   issuer: string;
@@ -56,6 +57,7 @@ export type RouteType =
   | "normal_repayment"
   | "refinancing";
 export type ReasonCode =
+  | OfferReasonCode
   | "DIFFERENT_CARDS_REQUIRED"
   | "SOURCE_PROGRAM_DISABLED"
   | "DESTINATION_DISABLED"
@@ -93,9 +95,13 @@ export type RouteQuoteRequest = {
   source_card_id: string;
   destination_card_id: string;
   amount: number;
+  offer_id?: string;
+  offer_tenure_months?: number;
 };
 export type RoutingQuoteResult = {
   schema_version: "1.0";
+  marketplace_offers: OfferReference[];
+  selected_offer: OfferQuote | null;
   source: Card;
   destination: Card;
   amount: number;

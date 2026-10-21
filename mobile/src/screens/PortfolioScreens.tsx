@@ -21,6 +21,7 @@ export type ActivityEntry = {
   time: string;
 };
 type PortfolioProps = {
+  onMarketplace: () => void;
   cards: Card[];
   portfolio: Portfolio;
   onOptimize: () => void;
@@ -31,6 +32,7 @@ export function HomeScreen({
   portfolio,
   onOptimize,
   onCard,
+  onMarketplace,
 }: PortfolioProps) {
   return (
     <View style={ui.stack}>
@@ -82,6 +84,11 @@ export function HomeScreen({
         <Meter value={portfolio.utilization} />
       </Surface>
       <Button label="Optimize My Credit" onPress={onOptimize} />
+      <Button
+        label="Explore fictional Marketplace"
+        onPress={onMarketplace}
+        secondary
+      />
       <Text style={ui.label}>
         Explore your options. Every route is a simulation.
       </Text>

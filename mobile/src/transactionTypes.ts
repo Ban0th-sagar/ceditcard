@@ -1,3 +1,4 @@
+import type { OfferQuote } from "./offerTypes";
 import { Card, RouteOption, RouteQuoteRequest, RouteType } from "./types";
 export type TransactionStatus =
   | "CREATED"
@@ -37,6 +38,10 @@ export type SimulatedTransaction = {
   quoted_interest: number;
   quoted_total_cost: number;
   quote_snapshot: RouteOption;
+  offer_id: string | null;
+  offer_tenure_months: number | null;
+  offer_quote_snapshot: OfferQuote | null;
+  latest_offer_snapshot: OfferQuote | null;
   latest_eligibility_snapshot: RouteOption | null;
   demo_outcome: DemoOutcome;
   status: TransactionStatus;

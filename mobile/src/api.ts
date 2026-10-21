@@ -1,3 +1,8 @@
+import type {
+  FictionalOffer,
+  OfferQuoteRequest,
+  OfferQuoteResponse,
+} from "./offerTypes";
 import {
   CreateTransactionRequest,
   SimulatedTransaction,
@@ -37,6 +42,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  offers: () => request<FictionalOffer[]>("/api/offers"),
+  offer: (id: string) =>
+    request<FictionalOffer>(`/api/offers/${encodeURIComponent(id)}`),
+  offerQuote: (input: OfferQuoteRequest) =>
+    request<OfferQuoteResponse>("/api/offers/quote", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   transactions: () => request<SimulatedTransaction[]>("/api/transactions"),
   transaction: (id: string) =>
     request<SimulatedTransaction>(

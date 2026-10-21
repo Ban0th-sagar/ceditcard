@@ -106,8 +106,8 @@ npm run test:e2e
 CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-The 46 Python tests cover portfolio totals, eligible/ineligible routes, six
-checks, amount/route limits, unknown cards, and lowest-cost selection. The 17
+The 65 Python tests cover portfolio totals, eligible/ineligible routes, six
+checks, amount/route limits, unknown cards, and lowest-cost selection. The 23
 Playwright tests preserve the acceptance demo at a phone viewport and cover
 the original five endpoints plus quote/capabilities, invalid HTTP inputs, amount
 feedback, all tabs/card details, backend rationale, route details/blockers,
@@ -214,3 +214,33 @@ restart. This remains an unauthenticated local prototype, never a payment system
 There are 19 new Python transaction tests and six new browser tests; existing
 Phase 1–3 test files and the routing engine are unchanged. Native Android/iOS
 builds remain unverified.
+
+## Phase 5 fictional offer Marketplace (issue #9)
+
+Open **Explore fictional Marketplace** from Home or **Open Marketplace** from
+Optimize. Choose the HDFC-like destination, enter ₹20,000, and compare. Cedar
+and Birch fictional balance-transfer offers are eligible at ₹20,300/₹20,600;
+Cedar ranks first by total repayment. Inspect **Why this offer?** and
+**Offer Details**, select Cedar, and use the existing **Simulate Route** flow.
+Activity/timeline retains its offer ID, provider, tenure and full quote snapshot.
+
+Switch to **Refinancing offers** for tenure/monthly comparisons, an intentionally
+ineligible offer and an inactive offer. Default tenure is declared per offer;
+an explicit tenure re-evaluates eligibility/ranking. Lower monthly payment can
+mean longer repayment time. Compare total repayment, not only monthly amount.
+The single-cycle comparison baseline and its horizon mismatch are visible;
+negative savings are shown and no savings are guaranteed.
+
+All seven offers/providers and prices are fictional. Ranking never uses partner
+payout. Eligibility, Decimal costs, monthly estimates, savings and rationale are
+backend-owned. Selecting an offer reuses the Phase 3 quote API, then Phase 4
+revalidates current offer eligibility/pricing before transaction creation.
+Inactive, expired, ineligible and unknown offers cannot be simulated. No real
+application, KYC, bureau pull, credentials or payments are implemented.
+
+See [Marketplace APIs, calculations, ranking and integration](docs/offer-marketplace.md).
+New APIs: `GET /api/offers`, `POST /api/offers/quote`, `GET /api/offers/{id}`.
+Run instructions are unchanged and no dependencies were added. Existing
+Phase 1–4 test files remain unchanged; 19 new Python and six new Playwright tests
+cover offer rules, paise rounding, neutral ranking, route integration,
+revalidation, details, protection cases and simulated settlement/Activity.

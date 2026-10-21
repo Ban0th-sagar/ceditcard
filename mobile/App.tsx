@@ -1,3 +1,5 @@
+import { MarketplaceScreen } from "./src/screens/MarketplaceScreen";
+import { OfferQuote, OfferType } from "./src/offerTypes";
 import {
   ConfirmationScreen,
   TransactionTimeline,
@@ -57,6 +59,12 @@ export default function App() {
   const [transaction, setTransaction] = useState<SimulatedTransaction | null>(
     null,
   );
+  const [marketplace, setMarketplace] = useState(false);
+  const [marketplaceType, setMarketplaceType] =
+    useState<OfferType>("balance_transfer");
+  const [pendingOffer, setPendingOffer] = useState<OfferQuote | null>(null);
+  const [selectingOffer, setSelectingOffer] = useState(false);
+  const [offerError, setOfferError] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const creationLock = useRef(false);
@@ -82,6 +90,9 @@ export default function App() {
   }, []);
   function navigate(next: Tab) {
     setTab(next);
+    setMarketplace(false);
+    setPendingOffer(null);
+    setOfferError("");
     setPendingRoute(null);
     setTransaction(null);
     setCreateError("");
@@ -147,8 +158,15 @@ export default function App() {
         amount: result.amount,
         route_id: pendingRoute.id,
         demo_outcome: outcome,
+        ...(pendingOffer
+          ? {
+              offer_id: pendingOffer.offer.id,
+              offer_tenure_months: pendingOffer.tenure_months,
+            }
+          : {}),
       });
       setTransaction(created);
+      setPendingOffer(null);
       setPendingRoute(null);
       scroll.current?.scrollTo({ y: 0, animated: false });
     } catch (caught) {
@@ -160,6 +178,48 @@ export default function App() {
     } finally {
       creationLock.current = false;
       setCreating(false);
+    }
+  }
+  function openMarketplace(type: OfferType = "balance_transfer") {
+    setTab("Optimize");
+    setMarketplaceType(type);
+    setMarketplace(true);
+    setOfferError("");
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  }
+  async function selectOffer(offer: OfferQuote) {
+    if (selectingOffer) return;
+    setSelectingOffer(true);
+    setOfferError("");
+    try {
+      const response = await api.quote({
+        source_card_id: sourceId,
+        destination_card_id: offer.destination_card_id,
+        amount: offer.amount,
+        offer_id: offer.offer.id,
+        offer_tenure_months: offer.tenure_months,
+      });
+      const route = response.routes.find(
+        (route) => route.id === offer.offer.offer_type,
+      );
+      if (!route?.eligible || !response.selected_offer?.eligible)
+        throw new Error(
+          "The backend blocked this selection. Refresh offers or choose a different mock source.",
+        );
+      setResult(response);
+      setShowResult(true);
+      setPendingRoute(route);
+      setPendingOffer(response.selected_offer);
+      setCreateError("");
+      scroll.current?.scrollTo({ y: 0, animated: false });
+    } catch (caught) {
+      setOfferError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not select fictional offer.",
+      );
+    } finally {
+      setSelectingOffer(false);
     }
   }
   const content = () => {
@@ -176,13 +236,37 @@ export default function App() {
         <ConfirmationScreen
           result={result}
           route={pendingRoute}
+          offer={pendingOffer}
           busy={creating}
           error={createError}
           onBack={() => {
             setPendingRoute(null);
+            setPendingOffer(null);
             scroll.current?.scrollTo({ y: 0, animated: false });
           }}
           onConfirm={(outcome) => void createSimulation(outcome)}
+        />
+      );
+    if (marketplace)
+      return (
+        <MarketplaceScreen
+          cards={cards}
+          sourceId={sourceId}
+          destinationId={destinationId}
+          amount={amount}
+          onSource={setSourceId}
+          onDestination={setDestinationId}
+          onAmount={setAmount}
+          initialType={marketplaceType}
+          busy={selectingOffer}
+          selectionError={offerError}
+          onTop={() => scroll.current?.scrollTo({ y: 0, animated: false })}
+          onBack={() => {
+            setMarketplace(false);
+            setOfferError("");
+            scroll.current?.scrollTo({ y: 0, animated: false });
+          }}
+          onSelect={(value) => void selectOffer(value)}
         />
       );
     if (tab === "Profile") return <ProfileScreen />;
@@ -229,6 +313,7 @@ export default function App() {
           portfolio={portfolio}
           onCard={openCard}
           onOptimize={() => navigate("Optimize")}
+          onMarketplace={() => openMarketplace()}
         />
       );
     if (tab === "Cards")
@@ -248,8 +333,14 @@ export default function App() {
       return (
         <ResultScreen
           result={result}
+          onMarketplace={openMarketplace}
           onSelect={(route) => {
             setPendingRoute(route);
+            setPendingOffer(
+              result.selected_offer?.offer.offer_type === route.id
+                ? result.selected_offer
+                : null,
+            );
             setCreateError("");
             scroll.current?.scrollTo({ y: 0, animated: false });
           }}
@@ -272,6 +363,7 @@ export default function App() {
         setAmount={setAmount}
         busy={busy}
         error={error}
+        onMarketplace={() => openMarketplace()}
         onRun={() => void runOptimize()}
       />
     );
@@ -309,10 +401,10 @@ export default function App() {
               accessibilityLabel={item.name}
               accessibilityState={{
                 selected: tab === item.name,
-                disabled: creating,
+                disabled: creating || selectingOffer,
               }}
-              disabled={creating}
-              aria-disabled={creating}
+              disabled={creating || selectingOffer}
+              aria-disabled={creating || selectingOffer}
               aria-selected={tab === item.name}
               onPress={() => navigate(item.name)}
               style={({ pressed }) => [s.tab, { opacity: pressed ? 0.7 : 1 }]}

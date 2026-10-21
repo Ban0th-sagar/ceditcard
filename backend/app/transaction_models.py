@@ -3,8 +3,9 @@
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .models import Card
+from .offer_models import OfferQuote
 from .routing_models import QuoteRequest, RouteOption, RouteType
 
 TRANSACTION_DISCLAIMER = (
@@ -28,6 +29,15 @@ class TransactionStatus(StrEnum):
 class CreateTransactionRequest(QuoteRequest):
     model_config = ConfigDict(extra="forbid")
     route_id: RouteType
+    offer_id: str | None = Field(default=None, min_length=1)
+    offer_tenure_months: int | None = Field(default=None, strict=True, gt=0, le=120)
+
+    @model_validator(mode="after")
+    def tenure_requires_offer(self):
+        if self.offer_tenure_months is not None and self.offer_id is None:
+            raise ValueError("An offer is required when selecting offer tenure.")
+        return self
+
     demo_outcome: Literal["success", "fail_processing"] = "success"
 
 
@@ -65,6 +75,10 @@ class Transaction(BaseModel):
     quoted_fee: float
     quoted_interest: float
     quoted_total_cost: float
+    offer_id: str | None = None
+    offer_tenure_months: int | None = None
+    offer_quote_snapshot: OfferQuote | None = None
+    latest_offer_snapshot: OfferQuote | None = None
     quote_snapshot: RouteOption
     latest_eligibility_snapshot: RouteOption | None = None
     demo_outcome: Literal["success", "fail_processing"]
