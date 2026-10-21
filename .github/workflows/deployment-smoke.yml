@@ -1,0 +1,43 @@
+name: Deployment Smoke Test
+
+on:
+  push:
+    branches:
+      - feature/live-demo-deployment
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build production container
+        run: docker build -t relay-live-demo .
+
+      - name: Start production container
+        run: docker run -d --name relay-live -p 8000:8000 -e PORT=8000 relay-live-demo
+
+      - name: Wait for API
+        run: |
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:8000/api/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs relay-live
+          exit 1
+
+      - name: Verify web UI
+        run: |
+          curl -fsS http://127.0.0.1:8000/ | grep -qi '<html'
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker logs relay-live || true

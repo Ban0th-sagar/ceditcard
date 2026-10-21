@@ -1,0 +1,12 @@
+.git
+.github
+**/__pycache__
+**/*.pyc
+backend/.venv
+mobile/node_modules
+mobile/dist
+mobile/playwright-report
+mobile/test-results
+.env
+.env.*
+!.env.example
