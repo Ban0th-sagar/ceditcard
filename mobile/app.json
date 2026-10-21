@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "Relay",
+    "slug": "relay-credit-routing",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"]
+  }
+}
