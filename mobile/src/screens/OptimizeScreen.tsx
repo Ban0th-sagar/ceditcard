@@ -1,3 +1,4 @@
+import type { OfferType } from "../offerTypes";
 import { CostBreakdown } from "../components/RouteCosts";
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -65,6 +66,7 @@ type Props = {
   busy: boolean;
   error: string;
   onRun: () => void;
+  onMarketplace: () => void;
 };
 export function OptimizeScreen({
   cards,
@@ -77,6 +79,7 @@ export function OptimizeScreen({
   busy,
   error,
   onRun,
+  onMarketplace,
 }: Props) {
   return (
     <View style={ui.stack}>
@@ -85,6 +88,7 @@ export function OptimizeScreen({
         subtitle="Compare your options, with eligibility before everything."
       />
       <Badge label="MOCK ELIGIBILITY · SIMULATION ONLY" />
+      <Button label="Open Marketplace" onPress={onMarketplace} secondary />
       <Text style={ui.eyebrow}>01 / SOURCE CARD</Text>
       <Text style={ui.h2}>Where from?</Text>
       {cards.map((card) => (
@@ -233,12 +237,14 @@ export function ResultScreen({
   onHome,
   onTop,
   onSelect,
+  onMarketplace,
 }: {
   result: RoutingQuoteResult;
   onChange: () => void;
   onHome: () => void;
   onTop: () => void;
   onSelect: (route: RouteOption) => void;
+  onMarketplace: (type: OfferType) => void;
 }) {
   const [why, setWhy] = useState(false);
   const [selected, setSelected] = useState<RouteOption | null>(null);
@@ -335,6 +341,25 @@ export function ResultScreen({
           </View>
           <Text style={ui.body}>{route.explanation}</Text>
           <CostBreakdown route={route} />
+          {(route.id === "balance_transfer" || route.id === "refinancing") && (
+            <>
+              {result.marketplace_offers
+                .filter((ref) => ref.offer_type === route.id)
+                .map((ref) => (
+                  <Text key={ref.offer_id} style={ui.body}>
+                    Best fictional marketplace quote: {ref.headline} · Total{" "}
+                    {money(ref.estimated_total_cost)} · {ref.tenure_months}{" "}
+                    months. Separate from the prototype estimate above.
+                  </Text>
+                ))}
+              <Button
+                label={`Browse ${route.display_name} offers`}
+                onPress={() => onMarketplace(route.id as OfferType)}
+                secondary
+              />
+            </>
+          )}
+
           <Text style={ui.label}>{route.processing_time_label}</Text>
           {route.pros.slice(0, 1).map((text) => (
             <Text key={text} style={{ color: color.teal }}>

@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 from fastapi import HTTPException
-from . import routing
+from . import routing, offers
 from .services import get_card
 from .transaction_models import (
     CancelRequest,
@@ -88,6 +88,28 @@ class TransactionService:
             request.amount,
             request.route_id,
         )
+        offer_quote = None
+        if request.offer_id is not None:
+            offer_quote = offers.selected_offer(
+                request.destination_card_id,
+                request.amount,
+                request.offer_id,
+                request.offer_tenure_months,
+            )
+            if offer_quote.offer.offer_type != request.route_id:
+                reject(
+                    "OFFER_ROUTE_MISMATCH",
+                    "Selected fictional offer does not match the selected route.",
+                )
+            if not offer_quote.eligible:
+                reject(
+                    "OFFER_INELIGIBLE",
+                    "Fictional offer failed backend revalidation. No transaction created.",
+                    blocking_reasons=[
+                        reason.model_dump() for reason in offer_quote.blocking_reasons
+                    ],
+                )
+            route = offers.apply_offer(route, offer_quote)
         if not route.eligible:
             reject(
                 "ROUTE_INELIGIBLE",
@@ -112,6 +134,9 @@ class TransactionService:
             quoted_interest=route.estimated_interest,
             quoted_total_cost=route.estimated_total_cost,
             quote_snapshot=route,
+            offer_id=offer_quote.offer.id if offer_quote else None,
+            offer_tenure_months=offer_quote.tenure_months if offer_quote else None,
+            offer_quote_snapshot=offer_quote,
             demo_outcome=request.demo_outcome,
             status=Status.CREATED,
             history=[
@@ -191,6 +216,23 @@ class TransactionService:
                     transaction.amount,
                     transaction.route_id,
                 )
+                if transaction.offer_id:
+                    try:
+                        offer_quote = offers.selected_offer(
+                            transaction.destination_card_id,
+                            transaction.amount,
+                            transaction.offer_id,
+                            transaction.offer_tenure_months,
+                        )
+                    except HTTPException:
+                        return self._record(
+                            transaction,
+                            Status.INELIGIBLE,
+                            "OFFER_NO_LONGER_AVAILABLE",
+                            "Fictional offer is no longer available. Request a new quote. No money moved.",
+                        )
+                    transaction.latest_offer_snapshot = offer_quote
+                    route = offers.apply_offer(route, offer_quote)
                 transaction.latest_eligibility_snapshot = route
                 if not route.eligible:
                     return self._record(

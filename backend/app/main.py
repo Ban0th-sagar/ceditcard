@@ -10,10 +10,17 @@ from fastapi.staticfiles import StaticFiles
 from .data import CARDS
 from .models import Card, EligibilityRequest
 from .services import get_card, card_route_checks
+from . import offers
+from .offers_api import router as offers_router
 from . import services
 from .transactions_api import router as transactions_router
-from .routing import quote_routes, capabilities
-from .routing_models import QuoteRequest, QuoteResponse, CapabilitiesResponse
+from .routing import quote_routes, capabilities, rank_routes
+from .routing_models import (
+    QuoteRequest,
+    QuoteResponse,
+    CapabilitiesResponse,
+    RouteQuoteSelectionRequest,
+)
 
 app = FastAPI(title="Relay Prototype API", version="0.1.0")
 
@@ -60,7 +67,7 @@ def optimize(req: EligibilityRequest):
 @app.exception_handler(RequestValidationError)
 async def validation_error(request: Request, exc: RequestValidationError):
     if request.url.path != "/api/routes/quote" and not request.url.path.startswith(
-        "/api/transactions"
+        ("/api/transactions", "/api/offers")
     ):
         return await request_validation_exception_handler(request, exc)
     amount_error = any(
@@ -78,7 +85,11 @@ async def validation_error(request: Request, exc: RequestValidationError):
                     else (
                         "Provide the required transaction fields; client quote or eligibility fields are not accepted."
                         if request.url.path.startswith("/api/transactions")
-                        else "Provide source_card_id, destination_card_id, and amount."
+                        else (
+                            "Provide destination_card_id, amount, and optional tenure_months; client pricing and eligibility are not accepted."
+                            if request.url.path.startswith("/api/offers")
+                            else "Provide source_card_id, destination_card_id, and amount."
+                        )
                     )
                 ),
             },
@@ -88,7 +99,7 @@ async def validation_error(request: Request, exc: RequestValidationError):
 
 
 @app.post("/api/routes/quote", response_model=QuoteResponse)
-def routes_quote(req: QuoteRequest):
+def routes_quote(req: RouteQuoteSelectionRequest):
     try:
         source = get_card(req.source_card_id)
         destination = get_card(req.destination_card_id)
@@ -100,7 +111,26 @@ def routes_quote(req: QuoteRequest):
                 "message": "The selected mock card was not found.",
             },
         ) from error
-    return quote_routes(source, destination, req.amount)
+    response = quote_routes(source, destination, req.amount)
+    response.marketplace_offers = offers.references(destination.id, req.amount)
+    if req.offer_id:
+        selected = offers.selected_offer(
+            destination.id, req.amount, req.offer_id, req.offer_tenure_months
+        )
+        response.selected_offer = selected
+        response.routes = [
+            (
+                offers.apply_offer(route, selected)
+                if route.id == selected.offer.offer_type
+                else route
+            )
+            for route in response.routes
+        ]
+        recommendation, explanation = rank_routes(response.routes)
+        response.recommendation = recommendation
+        response.recommended_route_id = recommendation.id if recommendation else None
+        response.recommendation_explanation = explanation
+    return response
 
 
 @app.get("/api/routes/capabilities", response_model=CapabilitiesResponse)
@@ -109,6 +139,7 @@ def route_capabilities():
 
 
 app.include_router(transactions_router)
+app.include_router(offers_router)
 
 
 # Serve the exported app alongside its API; API routes take precedence.

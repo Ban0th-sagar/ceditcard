@@ -1,13 +1,14 @@
 """Versioned, reusable simulation-only routing contract."""
 
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from .models import Card
+from .offer_models import OfferReasonCode, OfferReference, OfferQuote
 
 RouteType = Literal[
     "card_to_card", "balance_transfer", "normal_repayment", "refinancing"
 ]
-ReasonCode = Literal[
+RouteReasonCode = Literal[
     "DIFFERENT_CARDS_REQUIRED",
     "SOURCE_PROGRAM_DISABLED",
     "DESTINATION_DISABLED",
@@ -19,6 +20,8 @@ ReasonCode = Literal[
     "BALANCE_TRANSFER_LIMIT",
     "REFINANCE_MINIMUM",
 ]
+ReasonCode = RouteReasonCode | OfferReasonCode
+
 DISCLAIMER = (
     "Prototype simulation only. No real financial transaction is executed. "
     "Not proof of real issuer/network support or approval. Not financial advice."
@@ -31,6 +34,18 @@ class QuoteRequest(BaseModel):
     amount: float = Field(
         strict=True, gt=0, le=1_000_000_000, multiple_of=0.01, allow_inf_nan=False
     )
+
+
+class RouteQuoteSelectionRequest(QuoteRequest):
+    model_config = ConfigDict(extra="forbid")
+    offer_id: str | None = Field(default=None, min_length=1)
+    offer_tenure_months: int | None = Field(default=None, strict=True, gt=0, le=120)
+
+    @model_validator(mode="after")
+    def tenure_requires_offer(self):
+        if self.offer_tenure_months is not None and self.offer_id is None:
+            raise ValueError("Select a fictional offer before selecting its tenure.")
+        return self
 
 
 class RuleResult(BaseModel):
@@ -71,6 +86,8 @@ class RouteOption(BaseModel):
 
 class QuoteResponse(BaseModel):
     schema_version: Literal["1.0"] = "1.0"
+    selected_offer: OfferQuote | None = None
+    marketplace_offers: list[OfferReference] = Field(default_factory=list)
     source: Card
     destination: Card
     amount: float

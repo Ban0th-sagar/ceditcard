@@ -1,3 +1,5 @@
+import { OfferEconomics } from "../components/OfferEconomics";
+import type { OfferQuote } from "../offerTypes";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { api } from "../api";
@@ -41,6 +43,7 @@ export function ConfirmationScreen({
   error,
   onBack,
   onConfirm,
+  offer,
 }: {
   result: RoutingQuoteResult;
   route: RouteOption;
@@ -48,6 +51,7 @@ export function ConfirmationScreen({
   error: string;
   onBack: () => void;
   onConfirm: (outcome: DemoOutcome) => void;
+  offer?: OfferQuote | null;
 }) {
   const [outcome, setOutcome] = useState<DemoOutcome>("success");
   return (
@@ -75,6 +79,16 @@ export function ConfirmationScreen({
           Client-supplied costs are never used.
         </Text>
       </Surface>
+      {offer && (
+        <Surface>
+          <Text style={ui.eyebrow}>SELECTED FICTIONAL OFFER</Text>
+          <Text style={ui.h2}>
+            {offer.offer.provider_name} · {offer.offer.headline}
+          </Text>
+          <OfferEconomics quote={offer} />
+          <Text style={ui.body}>{offer.disclaimer}</Text>
+        </Surface>
+      )}
       <Surface>
         <Text style={ui.h2}>Controlled demo outcome</Text>
         {(["success", "fail_processing"] as const).map((value) => (
@@ -181,6 +195,18 @@ export function TransactionTimeline({
         <Text style={ui.label}>Created {time(transaction.created_at)}</Text>
         <Text style={ui.label}>Updated {time(transaction.updated_at)}</Text>
       </Surface>
+      {transaction.offer_quote_snapshot && (
+        <Surface>
+          <Text style={ui.eyebrow}>STORED FICTIONAL OFFER</Text>
+          <Text style={ui.h2}>
+            {transaction.offer_quote_snapshot.offer.headline}
+          </Text>
+          <OfferEconomics quote={transaction.offer_quote_snapshot} />
+          <Text style={ui.body}>
+            {transaction.offer_quote_snapshot.disclaimer}
+          </Text>
+        </Surface>
+      )}
       {transaction.failure_code && (
         <Surface>
           <Text style={{ color: color.danger }}>

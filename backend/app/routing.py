@@ -1,7 +1,7 @@
 """Central mock rules and provider boundary; no network or payment operations."""
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from .costing import cost_components, NORMAL_REPAYMENT_RATE
 from typing import Protocol
 from .data import CARDS
 from .models import Card
@@ -155,15 +155,8 @@ class MockRouteProvider:
             for c in checks
             if not c.passed
         ]
-        principal = Decimal(str(amount))
-        fee = (principal * Decimal(self.fee_rate)).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        interest = (principal * Decimal(self.interest_rate)).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        total = (principal + fee + interest).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
+        fee, interest, total = cost_components(
+            amount, self.fee_rate, self.interest_rate
         )
         return RouteOption(
             id=self.route_type,
@@ -219,7 +212,7 @@ PROVIDERS: tuple[RouteProvider, ...] = (
         "normal_repayment",
         "Normal Repayment",
         "0",
-        "0.035",
+        NORMAL_REPAYMENT_RATE,
         "Simulated · 1–2 days",
         "Illustrative carried-balance cost, not interest-free full repayment.",
         ("No processing fee.",),
@@ -238,13 +231,9 @@ PROVIDERS: tuple[RouteProvider, ...] = (
 )
 
 
-def quote_routes(
-    source: Card, destination: Card, amount: float, *, legacy: bool = False
-) -> QuoteResponse:
-    routes = [
-        provider.quote(source, destination, amount, legacy=legacy)
-        for provider in PROVIDERS
-    ]
+def rank_routes(routes: list[RouteOption]):
+    for route in routes:
+        route.recommendation_rank = None
     ranked = sorted(
         (route for route in routes if route.eligible),
         key=lambda route: (route.estimated_total_cost, route.id),
@@ -269,6 +258,17 @@ def quote_routes(
     explanation += (
         "This is a simulation, not financial advice or issuer/network approval."
     )
+    return recommendation, explanation
+
+
+def quote_routes(
+    source: Card, destination: Card, amount: float, *, legacy: bool = False
+) -> QuoteResponse:
+    routes = [
+        provider.quote(source, destination, amount, legacy=legacy)
+        for provider in PROVIDERS
+    ]
+    recommendation, explanation = rank_routes(routes)
     return QuoteResponse(
         source=source,
         destination=destination,
