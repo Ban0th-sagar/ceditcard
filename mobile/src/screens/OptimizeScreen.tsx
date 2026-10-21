@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { Card, OptimizeResult } from "../types";
+import { Card, RoutingQuoteResult, RouteOption } from "../types";
 import { Badge, Button, Heading, Stat, Surface } from "../components/UI";
 import { color, money, ui } from "../theme";
 function CardChoice({
@@ -150,16 +150,115 @@ export function OptimizeScreen({
     </View>
   );
 }
+function CostBreakdown({ route }: { route: RouteOption }) {
+  return (
+    <View style={ui.wrap}>
+      <Stat label="Amount" value={money(route.amount)} />
+      <Stat label="Fee" value={money(route.estimated_fee)} />
+      <Stat label="Est. interest" value={money(route.estimated_interest)} />
+      <Stat label="Total" value={money(route.estimated_total_cost)} />
+    </View>
+  );
+}
+function BlockingReasons({ route }: { route: RouteOption }) {
+  return (
+    <View style={{ gap: 8 }}>
+      {route.blocking_reasons.map((reason) => (
+        <Text key={reason.code} style={{ color: color.danger, lineHeight: 21 }}>
+          {reason.code}: {reason.message}
+        </Text>
+      ))}
+    </View>
+  );
+}
+function RouteDetails({
+  route,
+  onBack,
+}: {
+  route: RouteOption;
+  onBack: () => void;
+}) {
+  return (
+    <View style={ui.stack}>
+      <Button label="‹ Back to comparison" onPress={onBack} secondary />
+      <Heading title="Route Details" subtitle={route.display_name} />
+      <Badge
+        label={
+          route.eligible ? "SIMULATED · ELIGIBLE" : "SIMULATED · NOT ELIGIBLE"
+        }
+      />
+      <Surface>
+        <Text style={ui.eyebrow}>{route.route_type}</Text>
+        <Text style={ui.body}>{route.explanation}</Text>
+        <Text style={ui.body}>{route.processing_time_label}</Text>
+        <CostBreakdown route={route} />
+      </Surface>
+      <Text style={ui.h2}>Simulated eligibility checks</Text>
+      {route.checks.map((check) => (
+        <Surface key={check.key}>
+          <Text style={ui.value}>{check.label}</Text>
+          <Text style={{ color: check.passed ? color.teal : color.danger }}>
+            {check.passed ? "Passed" : "Blocked"} · {check.code}
+          </Text>
+          <Text style={ui.body}>{check.message}</Text>
+        </Surface>
+      ))}
+      <Text style={ui.h2}>Blocking reasons</Text>
+      {route.blocking_reasons.length ? (
+        <BlockingReasons route={route} />
+      ) : (
+        <Text style={ui.body}>No blocking reasons in this simulation.</Text>
+      )}
+      <Surface>
+        <Text style={ui.h2}>Trade-offs & assumptions</Text>
+        {route.pros.map((text) => (
+          <Text key={text} style={{ color: color.teal }}>
+            + {text}
+          </Text>
+        ))}
+        {route.cons.map((text) => (
+          <Text key={text} style={ui.body}>
+            − {text}
+          </Text>
+        ))}
+        {route.assumptions.map((text) => (
+          <Text key={text} style={ui.body}>
+            {text}
+          </Text>
+        ))}
+        {route.warnings.map((text) => (
+          <Text key={text} style={ui.body}>
+            {text}
+          </Text>
+        ))}
+      </Surface>
+      <Text style={ui.body}>{route.disclaimer}</Text>
+    </View>
+  );
+}
 export function ResultScreen({
   result,
   onChange,
   onHome,
+  onTop,
 }: {
-  result: OptimizeResult;
+  result: RoutingQuoteResult;
   onChange: () => void;
   onHome: () => void;
+  onTop: () => void;
 }) {
   const [why, setWhy] = useState(false);
+  const [selected, setSelected] = useState<RouteOption | null>(null);
+  if (selected)
+    return (
+      <RouteDetails
+        route={selected}
+        onBack={() => {
+          setSelected(null);
+          onTop();
+        }}
+      />
+    );
   return (
     <View style={ui.stack}>
       <Button label="‹ Change route" onPress={onChange} secondary />
@@ -170,10 +269,20 @@ export function ResultScreen({
       <Badge label="SIMULATION COMPLETE · NO MONEY MOVED" />
       <Surface>
         <Text style={ui.eyebrow}>RELAY RECOMMENDATION</Text>
-        <Text style={ui.h2}>{result.recommendation.label}</Text>
-        <Text style={{ color: color.accent, fontSize: 24, fontWeight: "800" }}>
-          Estimated total: {money(result.recommendation.total_cost)}
+        <Text style={ui.h2}>
+          {result.recommendation?.display_name ?? "No eligible route"}
         </Text>
+        {result.recommendation ? (
+          <Text
+            style={{ color: color.accent, fontSize: 24, fontWeight: "800" }}
+          >
+            Estimated total: {money(result.recommendation.estimated_total_cost)}
+          </Text>
+        ) : (
+          <Text style={ui.body}>
+            Adjust the selected cards or amount. No route is recommended.
+          </Text>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded: why }}
@@ -186,17 +295,8 @@ export function ResultScreen({
           </Text>
         </Pressable>
         {why && (
-          <View testID="recommendation-explanation" style={{ gap: 8 }}>
-            <Text style={ui.body}>
-              This is the lowest-total-cost eligible route returned by the
-              simulated engine for your selected cards and amount. Ineligible
-              routes are excluded from the recommendation.
-            </Text>
-            <Text style={ui.body}>{result.recommendation.explanation}</Text>
-            <Text style={ui.label}>
-              Total includes the amount, processing fee, and estimated interest
-              shown below. This is not a live offer or financial advice.
-            </Text>
+          <View testID="recommendation-explanation">
+            <Text style={ui.body}>{result.recommendation_explanation}</Text>
           </View>
         )}
       </Surface>
@@ -204,9 +304,7 @@ export function ResultScreen({
       {result.checks.map((check, index) => (
         <Surface key={check.key}>
           <View style={ui.row}>
-            <Text style={{ color: color.muted, fontSize: 12 }}>
-              {String(index + 1).padStart(2, "0")}
-            </Text>
+            <Text style={ui.label}>{String(index + 1).padStart(2, "0")}</Text>
             <View style={ui.flex}>
               <Text style={ui.value}>{check.label}</Text>
               <Text style={ui.body}>{check.message}</Text>
@@ -224,27 +322,54 @@ export function ResultScreen({
         </Surface>
       ))}
       <Text style={ui.h2}>Compare routes</Text>
-      {result.quotes.map((quote) => (
-        <Surface key={quote.route}>
-          <Text style={ui.h2}>{quote.label}</Text>
-          {quote.route === result.recommendation.route && (
-            <Badge label="RECOMMENDED" />
-          )}
-          <Text style={ui.body}>{quote.explanation}</Text>
+      {result.routes.map((route) => (
+        <View
+          key={route.id}
+          testID={`route-${route.id}`}
+          style={[
+            ui.surface,
+            route.id === result.recommended_route_id && {
+              borderColor: color.accent,
+            },
+          ]}
+        >
+          <Text style={ui.h2}>{route.display_name}</Text>
           <View style={ui.wrap}>
-            <Stat label="Fee" value={money(quote.processing_fee)} />
-            <Stat
-              label="Est. interest"
-              value={money(quote.estimated_interest)}
-            />
-            <Stat label="Total" value={money(quote.total_cost)} />
+            <Badge label={route.eligible ? "Eligible" : "Not eligible"} />
+            {route.id === result.recommended_route_id && (
+              <Badge label="RECOMMENDED" />
+            )}
           </View>
-          {!quote.eligible && (
-            <Text style={{ color: color.danger }}>
-              Not eligible in this simulation
+          <Text style={ui.body}>{route.explanation}</Text>
+          <CostBreakdown route={route} />
+          <Text style={ui.label}>{route.processing_time_label}</Text>
+          {route.pros.slice(0, 1).map((text) => (
+            <Text key={text} style={{ color: color.teal }}>
+              + {text}
             </Text>
+          ))}
+          {route.cons.slice(0, 1).map((text) => (
+            <Text key={text} style={ui.body}>
+              − {text}
+            </Text>
+          ))}
+          {!route.eligible && (
+            <>
+              <Text style={{ color: color.danger }}>
+                Not eligible in this simulation
+              </Text>
+              <BlockingReasons route={route} />
+            </>
           )}
-        </Surface>
+          <Button
+            label={`View ${route.display_name} details`}
+            onPress={() => {
+              setSelected(route);
+              onTop();
+            }}
+            secondary
+          />
+        </View>
       ))}
       <Button label="Back to portfolio" onPress={onHome} secondary />
       <Text style={ui.body}>{result.disclaimer}</Text>

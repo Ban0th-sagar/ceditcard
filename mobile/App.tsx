@@ -12,7 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { api } from "./src/api";
-import { Card, OptimizeResult, Portfolio } from "./src/types";
+import { Card, RoutingQuoteResult, Portfolio } from "./src/types";
 import { Badge, State } from "./src/components/UI";
 import {
   ActivityEntry,
@@ -43,7 +43,7 @@ export default function App() {
   const [sourceId, setSourceId] = useState("icici_amazon");
   const [destinationId, setDestinationId] = useState("hdfc_regalia");
   const [amount, setAmount] = useState("10000");
-  const [result, setResult] = useState<OptimizeResult | null>(null);
+  const [result, setResult] = useState<RoutingQuoteResult | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [busy, setBusy] = useState(false);
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
@@ -87,7 +87,11 @@ export default function App() {
     setError("");
     setBusy(true);
     try {
-      const data = await api.optimize(sourceId, destinationId, value);
+      const data = await api.quote({
+        source_card_id: sourceId,
+        destination_card_id: destinationId,
+        amount: value,
+      });
       setResult(data);
       setShowResult(true);
       scroll.current?.scrollTo({ y: 0, animated: false });
@@ -100,8 +104,8 @@ export default function App() {
         id: ++eventId.current,
         title: failed ? "Route not eligible" : "Optimization checked",
         detail: failed
-          ? `${data.source.issuer} → ${data.destination.issuer}: Card-to-Card unavailable; ${data.recommendation.label} recommended. No payment.`
-          : `${data.source.issuer} → ${data.destination.issuer}: ${data.recommendation.label} recommended. No payment.`,
+          ? `${data.source.issuer} → ${data.destination.issuer}: Card-to-Card unavailable; ${data.recommendation?.display_name ?? "No route"} recommended. No payment.`
+          : `${data.source.issuer} → ${data.destination.issuer}: ${data.recommendation?.display_name ?? "No route"} recommended. No payment.`,
         time,
       };
       setEntries((previous) => [entry, ...previous]);
@@ -169,6 +173,7 @@ export default function App() {
       return (
         <ResultScreen
           result={result}
+          onTop={() => scroll.current?.scrollTo({ y: 0, animated: false })}
           onChange={() => {
             setShowResult(false);
             scroll.current?.scrollTo({ y: 0, animated: false });
