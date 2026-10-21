@@ -11,6 +11,7 @@ from .data import CARDS
 from .models import Card, EligibilityRequest
 from .services import get_card, card_route_checks
 from . import services
+from .transactions_api import router as transactions_router
 from .routing import quote_routes, capabilities
 from .routing_models import QuoteRequest, QuoteResponse, CapabilitiesResponse
 
@@ -58,7 +59,9 @@ def optimize(req: EligibilityRequest):
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(request: Request, exc: RequestValidationError):
-    if request.url.path != "/api/routes/quote":
+    if request.url.path != "/api/routes/quote" and not request.url.path.startswith(
+        "/api/transactions"
+    ):
         return await request_validation_exception_handler(request, exc)
     amount_error = any(
         "amount" in error["loc"] and error["type"] != "missing"
@@ -72,7 +75,11 @@ async def validation_error(request: Request, exc: RequestValidationError):
                 "message": (
                     "Enter a positive finite amount in paise increments, at most ₹1,000,000,000."
                     if amount_error
-                    else "Provide source_card_id, destination_card_id, and amount."
+                    else (
+                        "Provide the required transaction fields; client quote or eligibility fields are not accepted."
+                        if request.url.path.startswith("/api/transactions")
+                        else "Provide source_card_id, destination_card_id, and amount."
+                    )
                 ),
             },
             "simulated": True,
@@ -99,6 +106,9 @@ def routes_quote(req: QuoteRequest):
 @app.get("/api/routes/capabilities", response_model=CapabilitiesResponse)
 def route_capabilities():
     return capabilities()
+
+
+app.include_router(transactions_router)
 
 
 # Serve the exported app alongside its API; API routes take precedence.

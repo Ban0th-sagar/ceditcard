@@ -1,7 +1,8 @@
+import { CostBreakdown } from "../components/RouteCosts";
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { Card, RoutingQuoteResult, RouteOption } from "../types";
-import { Badge, Button, Heading, Stat, Surface } from "../components/UI";
+import { Badge, Button, Heading, Surface } from "../components/UI";
 import { color, money, ui } from "../theme";
 function CardChoice({
   card,
@@ -150,16 +151,6 @@ export function OptimizeScreen({
     </View>
   );
 }
-function CostBreakdown({ route }: { route: RouteOption }) {
-  return (
-    <View style={ui.wrap}>
-      <Stat label="Amount" value={money(route.amount)} />
-      <Stat label="Fee" value={money(route.estimated_fee)} />
-      <Stat label="Est. interest" value={money(route.estimated_interest)} />
-      <Stat label="Total" value={money(route.estimated_total_cost)} />
-    </View>
-  );
-}
 function BlockingReasons({ route }: { route: RouteOption }) {
   return (
     <View style={{ gap: 8 }}>
@@ -241,11 +232,13 @@ export function ResultScreen({
   onChange,
   onHome,
   onTop,
+  onSelect,
 }: {
   result: RoutingQuoteResult;
   onChange: () => void;
   onHome: () => void;
   onTop: () => void;
+  onSelect: (route: RouteOption) => void;
 }) {
   const [why, setWhy] = useState(false);
   const [selected, setSelected] = useState<RouteOption | null>(null);
@@ -360,6 +353,12 @@ export function ResultScreen({
               </Text>
               <BlockingReasons route={route} />
             </>
+          )}
+          {route.eligible && (
+            <Button
+              label={`Select ${route.display_name}`}
+              onPress={() => onSelect(route)}
+            />
           )}
           <Button
             label={`View ${route.display_name} details`}

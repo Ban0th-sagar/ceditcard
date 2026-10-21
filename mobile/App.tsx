@@ -1,3 +1,9 @@
+import {
+  ConfirmationScreen,
+  TransactionTimeline,
+  TransactionActivity,
+} from "./src/screens/TransactionScreens";
+import { DemoOutcome, SimulatedTransaction } from "./src/transactionTypes";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,7 +18,7 @@ import {
   Platform,
 } from "react-native";
 import { api } from "./src/api";
-import { Card, RoutingQuoteResult, Portfolio } from "./src/types";
+import { Card, RoutingQuoteResult, Portfolio, RouteOption } from "./src/types";
 import { Badge, State } from "./src/components/UI";
 import {
   ActivityEntry,
@@ -47,6 +53,13 @@ export default function App() {
   const [showResult, setShowResult] = useState(false);
   const [busy, setBusy] = useState(false);
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
+  const [pendingRoute, setPendingRoute] = useState<RouteOption | null>(null);
+  const [transaction, setTransaction] = useState<SimulatedTransaction | null>(
+    null,
+  );
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const creationLock = useRef(false);
   const scroll = useRef<ScrollView>(null);
   const eventId = useRef(0);
   async function load() {
@@ -69,6 +82,9 @@ export default function App() {
   }, []);
   function navigate(next: Tab) {
     setTab(next);
+    setPendingRoute(null);
+    setTransaction(null);
+    setCreateError("");
     setSelectedCard(null);
     setShowResult(false);
     setError("");
@@ -119,9 +135,68 @@ export default function App() {
       setBusy(false);
     }
   }
+  async function createSimulation(outcome: DemoOutcome) {
+    if (!result || !pendingRoute || creationLock.current) return;
+    creationLock.current = true;
+    setCreating(true);
+    setCreateError("");
+    try {
+      const created = await api.createTransaction({
+        source_card_id: result.source.id,
+        destination_card_id: result.destination.id,
+        amount: result.amount,
+        route_id: pendingRoute.id,
+        demo_outcome: outcome,
+      });
+      setTransaction(created);
+      setPendingRoute(null);
+      scroll.current?.scrollTo({ y: 0, animated: false });
+    } catch (caught) {
+      setCreateError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not create simulation. Try again.",
+      );
+    } finally {
+      creationLock.current = false;
+      setCreating(false);
+    }
+  }
   const content = () => {
+    if (transaction)
+      return (
+        <TransactionTimeline
+          key={transaction.id}
+          initial={transaction}
+          onActivity={() => navigate("Activity")}
+        />
+      );
+    if (pendingRoute && result)
+      return (
+        <ConfirmationScreen
+          result={result}
+          route={pendingRoute}
+          busy={creating}
+          error={createError}
+          onBack={() => {
+            setPendingRoute(null);
+            scroll.current?.scrollTo({ y: 0, animated: false });
+          }}
+          onConfirm={(outcome) => void createSimulation(outcome)}
+        />
+      );
     if (tab === "Profile") return <ProfileScreen />;
-    if (tab === "Activity") return <ActivityScreen entries={entries} />;
+    if (tab === "Activity")
+      return (
+        <ActivityScreen entries={entries}>
+          <TransactionActivity
+            onOpen={(value) => {
+              setTransaction(value);
+              scroll.current?.scrollTo({ y: 0, animated: false });
+            }}
+          />
+        </ActivityScreen>
+      );
     if (loading)
       return (
         <View style={s.loading}>
@@ -173,6 +248,11 @@ export default function App() {
       return (
         <ResultScreen
           result={result}
+          onSelect={(route) => {
+            setPendingRoute(route);
+            setCreateError("");
+            scroll.current?.scrollTo({ y: 0, animated: false });
+          }}
           onTop={() => scroll.current?.scrollTo({ y: 0, animated: false })}
           onChange={() => {
             setShowResult(false);
@@ -227,7 +307,12 @@ export default function App() {
               key={item.name}
               accessibilityRole="tab"
               accessibilityLabel={item.name}
-              accessibilityState={{ selected: tab === item.name }}
+              accessibilityState={{
+                selected: tab === item.name,
+                disabled: creating,
+              }}
+              disabled={creating}
+              aria-disabled={creating}
               aria-selected={tab === item.name}
               onPress={() => navigate(item.name)}
               style={({ pressed }) => [s.tab, { opacity: pressed ? 0.7 : 1 }]}

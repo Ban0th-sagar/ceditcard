@@ -1,4 +1,9 @@
 import {
+  CreateTransactionRequest,
+  SimulatedTransaction,
+  TransactionStatus,
+} from "./transactionTypes";
+import {
   Card,
   OptimizeResult,
   Portfolio,
@@ -32,6 +37,26 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  transactions: () => request<SimulatedTransaction[]>("/api/transactions"),
+  transaction: (id: string) =>
+    request<SimulatedTransaction>(
+      `/api/transactions/${encodeURIComponent(id)}`,
+    ),
+  createTransaction: (input: CreateTransactionRequest) =>
+    request<SimulatedTransaction>("/api/transactions", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  advanceTransaction: (id: string, status: TransactionStatus) =>
+    request<SimulatedTransaction>(
+      `/api/transactions/${encodeURIComponent(id)}/advance`,
+      { method: "POST", body: JSON.stringify({ expected_status: status }) },
+    ),
+  cancelTransaction: (id: string, status: TransactionStatus) =>
+    request<SimulatedTransaction>(
+      `/api/transactions/${encodeURIComponent(id)}/cancel`,
+      { method: "POST", body: JSON.stringify({ expected_status: status }) },
+    ),
   quote: (input: RouteQuoteRequest) =>
     request<RoutingQuoteResult>("/api/routes/quote", {
       method: "POST",
