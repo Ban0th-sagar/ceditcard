@@ -1,0 +1,81 @@
+name: Relay Demo Preview
+
+on:
+  push:
+    branches:
+      - chore/demo-preview
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: mobile
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck
+        working-directory: mobile
+        run: npm run typecheck
+
+      - name: Build web app
+        working-directory: mobile
+        env:
+          EXPO_OFFLINE: '1'
+          EXPO_NO_TELEMETRY: '1'
+        run: npm run build:web
+
+      - name: Start Relay backend + web
+        run: |
+          cd backend
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/relay.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/relay.log
+          exit 1
+
+      - name: Capture actual demo screenshots
+        working-directory: mobile
+        run: npx playwright test tests/demo-preview.spec.ts
+
+      - name: Upload demo screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-demo-output
+          path: mobile/demo-output/*.png
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Show backend log on failure
+        if: failure()
+        run: cat /tmp/relay.log || true
