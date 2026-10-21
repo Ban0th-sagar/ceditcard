@@ -106,8 +106,8 @@ npm run test:e2e
 CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-The 27 Python tests cover portfolio totals, eligible/ineligible routes, six
-checks, amount/route limits, unknown cards, and lowest-cost selection. The 11
+The 46 Python tests cover portfolio totals, eligible/ineligible routes, six
+checks, amount/route limits, unknown cards, and lowest-cost selection. The 17
 Playwright tests preserve the acceptance demo at a phone viewport and cover
 the original five endpoints plus quote/capabilities, invalid HTTP inputs, amount
 feedback, all tabs/card details, backend rationale, route details/blockers,
@@ -188,3 +188,29 @@ Preview screenshots: [Recommendation](docs/previews/phase3-recommendation.png),
 [Details](docs/previews/phase3-details.png). These are screenshots of the tested
 mobile web app, not a public deployment. Native Android/iOS builds remain
 unverified.
+
+## Phase 4 transaction simulator (issue #7)
+
+From an eligible route card, choose **Select …**, review confirmation, and press
+**Simulate Route**. The backend re-quotes using the Phase 3 engine, rejects
+ineligible routes or client-supplied quote fields, and stores an authoritative
+snapshot. Use **Advance simulation** to follow the local timeline through
+`CREATED → ELIGIBILITY_CHECK → ELIGIBLE → AUTHORIZED → PROCESSING → SIMULATED_SETTLED`.
+Every transaction screen explicitly shows Simulation Mode, No money moved, and
+No bank/network/issuer integration. Mock card balances never change.
+
+**Cancel simulation** is available before processing. **Fail at processing demo**
+on confirmation gives a deterministic `FAILED` result. A changed backend mock
+rule can produce `INELIGIBLE` during recheck. Activity now includes server-backed
+transaction records with reopenable timelines alongside session quote events
+and clearly labeled illustrative history.
+
+See [Transaction API, state machine, architecture and demos](docs/transaction-simulator.md).
+All five transaction endpoints have typed contracts. Use the same install/build/
+test commands above: no new dependencies or services are required. Start one API
+worker; in-memory transaction history survives browser reloads but resets on API
+restart. This remains an unauthenticated local prototype, never a payment system.
+
+There are 19 new Python transaction tests and six new browser tests; existing
+Phase 1–3 test files and the routing engine are unchanged. Native Android/iOS
+builds remain unverified.

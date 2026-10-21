@@ -214,7 +214,13 @@ export function CardDetailsScreen({
     </View>
   );
 }
-export function ActivityScreen({ entries }: { entries: ActivityEntry[] }) {
+export function ActivityScreen({
+  entries,
+  children,
+}: {
+  entries: ActivityEntry[];
+  children?: React.ReactNode;
+}) {
   return (
     <View style={ui.stack}>
       <Heading
@@ -222,6 +228,7 @@ export function ActivityScreen({ entries }: { entries: ActivityEntry[] }) {
         subtitle="A record of exploration, never money movement."
       />
       <Badge label="SIMULATED ACTIVITY ONLY" />
+      {children}
       <Surface>
         <Text style={ui.h2}>This session</Text>
         {entries.length ? (
