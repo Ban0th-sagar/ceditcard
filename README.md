@@ -1,85 +1,132 @@
-# Relay — Credit Routing Prototype
+# Relay — Phase 1 credit routing prototype
 
-A mobile-first prototype for testing the startup's core hypothesis:
+Expo + React Native + TypeScript UI and a FastAPI backend. All cards, eligibility
+policies, fees, interest, and recommendations are **mock simulations**. Issuer
+names identify fictional demo cards and imply no issuer/network support. No
+payments, bank connections, sensitive credentials, or money movement exist.
 
-> Given Card A, Card B, and an amount, determine whether a mock eligible route exists, compare alternatives, and recommend the lowest-cost eligible route.
+## Features
 
-## What works in Phase 1
+- Four mock cards; portfolio outstanding, available credit, utilization, and next due card.
+- Source/destination selection and amount validation.
+- Six simulated Card-to-Card checks, with intentionally eligible and ineligible combinations.
+- Four illustrative routes: Card-to-Card, balance transfer, normal repayment, refinancing.
+- Lowest-total-cost eligible recommendation and a simulation-complete result screen.
 
-- Portfolio dashboard with 4 mock credit cards
-- Dynamic portfolio totals
-- Source card + destination card selection
-- Amount input
-- Mock Card-to-Card eligibility checks
-- Some card combinations intentionally pass and others fail
-- Comparison of Card-to-Card, Balance Transfer, Normal Repayment, and Refinancing
-- Lowest-cost eligible route recommendation
-- No real card data and no real money movement
+`backend/app/data.py` is the single mock portfolio source. Pydantic models live
+in `backend/app/models.py`, routing/quote logic in `backend/app/services.py`, and
+HTTP routes in `backend/app/main.py`. The mobile app uses typed API responses and
+reusable card/stat components; it does not duplicate financial rules or data.
 
-## Project structure
+## Prerequisites
 
-```text
-ceditcard/
-  mobile/     Expo + React Native + TypeScript
-  backend/    FastAPI + Python
-```
+Python 3.12+ and Node.js 22+ with npm (validated on Python 3.12 and Node 24).
+No external database, API key, bank account, or Expo login is needed for web.
+Run the following commands from the checkout root unless stated otherwise.
 
-## Start the backend (Windows PowerShell)
+## Install and run web + API (Linux/macOS)
 
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Test:
-
-- http://127.0.0.1:8000/api/health
-- http://127.0.0.1:8000/docs
-
-## Start the mobile app
-
-Open a second terminal:
-
-```powershell
+```bash
+python -m venv backend/.venv
+backend/.venv/bin/python -m pip install -r backend/requirements.txt
 cd mobile
-npm install
-npx expo start
+npm ci
+npm run typecheck
+EXPO_OFFLINE=1 EXPO_NO_TELEMETRY=1 npm run build:web
+cd ../backend
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### API URL
+The backend serves the exported web app and API together on port 8000. Open
+`http://127.0.0.1:8000` on your own machine. API docs are at `/docs` and health is
+at `/api/health`. Rebuild frontend changes and restart the backend to refresh
+the exported app. Start the backend after the export so it mounts the web app.
 
-Edit `mobile/src/api.ts` depending on where you run Expo:
+On cloud machines with a read-only home directory, set
+`export npm_config_cache=/tmp/relay-npm-cache` before npm commands and use
+`--cache-dir /tmp/relay-pip-cache` with pip. `EXPO_OFFLINE=1` avoids Expo's online
+compatibility-metadata request; npm still downloads packages with normal
+integrity/TLS verification. This flag is optional when Expo's API is reachable.
 
-- Web / iOS simulator: `http://127.0.0.1:8000`
-- Android emulator: `http://10.0.2.2:8000`
-- Physical phone: use your laptop's LAN IP, for example `http://192.168.1.5:8000`
+### Windows PowerShell
 
-For a physical phone, make sure the phone and laptop are on the same Wi-Fi network and the firewall allows port 8000.
+```powershell
+python -m venv backend/.venv
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+cd mobile
+npm ci
+npm run typecheck
+$env:EXPO_OFFLINE="1"
+$env:EXPO_NO_TELEMETRY="1"
+npm run build:web
+cd ../backend
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+.venv/Scripts/python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-## Recommended demo
+## Live Expo development / phone
 
-1. Open Relay dashboard.
-2. Tap **Optimize my credit**.
-3. Source: **ICICI Amazon Pay**.
-4. Destination: **HDFC Regalia**.
-5. Amount: **₹10,000**.
-6. Tap **Check eligibility & optimize**.
-7. Review all six eligibility checks.
-8. Compare the four possible routes.
-9. Show Relay's recommended route.
-10. Change the source to HDFC or Axis to demonstrate an intentionally failed Card-to-Card route and fallback alternatives.
+Keep the backend running. In a second terminal, from `mobile/`, set the API
+origin **before** starting Expo:
 
-## Safety / product boundary
+```bash
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 npm run web
+# For Expo Go, use a backend address reachable from your phone:
+EXPO_PUBLIC_API_URL=http://192.168.1.5:8000 npm start
+```
 
-This repository is a product simulation. It does not:
+Replace the LAN IP with your development machine's address; allow port 8000
+through its firewall and use the same Wi-Fi. Android emulators typically use
+`http://10.0.2.2:8000`; iOS simulators use `http://127.0.0.1:8000`. In PowerShell,
+set `$env:EXPO_PUBLIC_API_URL="http://<reachable-host>:8000"` then `npm start`.
+Use an Expo Go/development client compatible with SDK 57. Native compilation
+requires the corresponding Android/iOS SDK and is not validated by web tests.
 
-- process payments
-- connect to a bank or card network
-- collect full card numbers
-- collect CVV/PIN/OTP
-- provide financial advice
+Exported web defaults to a same-origin API. Rebuild after changing
+`EXPO_PUBLIC_API_URL`; it is embedded in the client. Never put secrets in
+`EXPO_PUBLIC_*` variables. No source edit is needed to change the API address.
 
-Real-world financial execution must only be added after issuer/network/payment-partner validation and the required regulatory/compliance work.
+## Checks
+
+From `backend/`:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+From `mobile/`, with the exported app/API running on port 8000:
+
+```bash
+npm run typecheck
+npx playwright install chromium  # once, if no browser is installed
+npm run test:e2e
+# Alternatively use system Chromium on Linux:
+CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
+```
+
+The nine Python tests cover portfolio totals, eligible/ineligible routes, six
+checks, amount/route limits, unknown cards, and lowest-cost selection. The three
+Playwright tests cover the acceptance demo at a phone viewport, all five API
+endpoints and invalid HTTP inputs, and invalid amount feedback. No separate
+lint script is configured.
+
+## Acceptance demo (issue #1)
+
+1. Open the dashboard and inspect the four mock cards and next-due summary.
+2. Tap **Optimize my credit**. Source defaults to **ICICI Amazon Pay**, destination
+   to **HDFC Regalia**; amount defaults to **₹10,000**.
+3. Tap **Check eligibility & optimize**. All six checks pass; all four quotes
+   appear. Card-to-Card is recommended with a simulated total of **₹10,125**.
+4. Tap **Change route**, choose **Axis ACE** as source, and rerun. The source
+   program check fails, Card-to-Card is unavailable, and fallback routes remain
+   visible. Refinancing is recommended with a simulated total of **₹10,320**.
+5. Return to the portfolio. No transaction was executed or persisted.
+
+## Prototype limits
+
+Data is static, in memory, and not tied to real accounts. The next due card is
+the earliest mock due date. The normal-repayment quote illustrates carrying a
+balance rather than interest-free full repayment; all prices are illustrative,
+not validated offers or financial advice. There is no authentication,
+persistence, transaction submission, or real issuer/network integration.
