@@ -11,7 +11,7 @@ export const color = {
   danger: "#FFA5AC",
 };
 export const money = (value: number) =>
-  `₹${Math.round(value).toLocaleString("en-IN")}`;
+  `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 export const due = (value: string) =>
   new Date(`${value}T12:00:00Z`).toLocaleDateString("en-IN", {
     day: "numeric",

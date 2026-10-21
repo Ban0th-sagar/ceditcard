@@ -9,13 +9,14 @@ payments, bank connections, sensitive credentials, or money movement exist.
 
 - Four mock cards; portfolio outstanding, available credit, utilization, and next due card.
 - Source/destination selection and amount validation.
-- Six simulated Card-to-Card checks, with intentionally eligible and ineligible combinations.
+- Six summary checks plus full per-route details, with intentionally eligible and ineligible combinations.
 - Four illustrative routes: Card-to-Card, balance transfer, normal repayment, refinancing.
 - Lowest-total-cost eligible recommendation and a simulation-complete result screen.
 
 `backend/app/data.py` is the single mock portfolio source. Pydantic models live
-in `backend/app/models.py`, routing/quote logic in `backend/app/services.py`, and
-HTTP routes in `backend/app/main.py`. The mobile app uses typed API responses and
+in `backend/app/models.py` and `backend/app/routing_models.py`, routing/quote
+logic in `backend/app/routing.py`, compatibility adapters in
+`backend/app/services.py`, and HTTP routes in `backend/app/main.py`. The mobile app uses typed API responses and
 reusable card/stat components; it does not duplicate financial rules or data.
 
 ## Prerequisites
@@ -105,13 +106,12 @@ npm run test:e2e
 CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-The nine Python tests cover portfolio totals, eligible/ineligible routes, six
-checks, amount/route limits, unknown cards, and lowest-cost selection. The six
-Playwright tests preserve the acceptance demo at a phone viewport, all five API
-endpoints and invalid HTTP inputs, and invalid amount feedback, and add tabs,
-all four card details, recommendation disclosure, simulated session activity,
-and portfolio error/empty-state recovery. No separate
-lint script is configured.
+The 27 Python tests cover portfolio totals, eligible/ineligible routes, six
+checks, amount/route limits, unknown cards, and lowest-cost selection. The 11
+Playwright tests preserve the acceptance demo at a phone viewport and cover
+the original five endpoints plus quote/capabilities, invalid HTTP inputs, amount
+feedback, all tabs/card details, backend rationale, route details/blockers,
+session activity, and error/empty-state recovery. No separate lint script is configured.
 
 ## Acceptance demo (issue #1)
 
@@ -160,3 +160,31 @@ to see the passing and ineligible checks. Profile explains simulation mode.
 Loading, network-failure retry, and empty-card refresh states are included.
 Native Android/iOS rendering remains unverified; automated UI validation uses
 a Chromium browser at a 390 × 844 viewport.
+
+## Phase 3 routing transparency (issue #5)
+
+Optimize now requests `POST /api/routes/quote` through typed mobile contracts.
+All four routes include status, stable blocking codes, checks, cost components,
+processing-time labels, and backend-authored trade-offs. Open each route's
+**View … details** action to inspect all rules, assumptions, and disclaimers.
+**Why this recommendation?** renders the backend rationale verbatim. Home,
+Cards, Activity, and Profile retain the Phase 2 design and navigation.
+
+See [API and architecture](docs/routing-api.md) for schemas, rule codes,
+provider boundary, rounding policy, legacy endpoint compatibility, and previews.
+Run instructions above are unchanged; restart the API after backend changes.
+There are no new dependencies. Existing Phase 1/2 tests remain unchanged; five
+new browser tests cover the quote contract, errors, all four route details,
+backend rationale, blockers, fallbacks, and same-card feedback. Eighteen new
+Python tests cover the central routing rules and recommendation behavior.
+
+Repeat the passing and Axis demos above, open each route's details, then select
+the same source/destination to see four blocked routes and no recommendation.
+Zero/negative amounts are rejected in the UI and API; amounts above the
+destination balance return blocked quotes. No payment can be submitted.
+
+Preview screenshots: [Recommendation](docs/previews/phase3-recommendation.png),
+[Comparison](docs/previews/phase3-routing.png),
+[Details](docs/previews/phase3-details.png). These are screenshots of the tested
+mobile web app, not a public deployment. Native Android/iOS builds remain
+unverified.
