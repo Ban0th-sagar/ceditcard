@@ -1,4 +1,5 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, selectCard, technicalError } from "./fixtures";
+import type { Page } from "@playwright/test";
 
 const input = { destination_card_id: "hdfc_regalia", amount: 20000 };
 async function marketplace(page: Page, amount = "20000") {
@@ -201,9 +202,11 @@ test("selected offer reuses simulation flow and persists offer context in Activi
     .getByRole("button", { name: "View in Activity", exact: true })
     .click();
   await expect(
-    page.getByText("Demo Cedar Studio · Cedar Clear Transfer · ₹20,000", {
-      exact: true,
-    }),
+    page
+      .getByTestId(`simulation-${created.id}`)
+      .getByText("Demo Cedar Studio · Cedar Clear Transfer · ₹20,000", {
+        exact: true,
+      }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: `Open simulation ${created.id}`, exact: true })
@@ -278,7 +281,7 @@ test("route references and direct offer transaction protections", async ({
   await page.goto("/");
   await page.getByRole("tab", { name: "Optimize", exact: true }).click();
   await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
   await expect(page.getByTestId("route-balance_transfer")).toContainText(
     "Best fictional marketplace quote",
@@ -354,5 +357,5 @@ test("Marketplace errors can retry and invalid amounts remain clean", async ({
   await page
     .getByRole("button", { name: "Compare fictional offers", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("INVALID_AMOUNT");
+  await technicalError(page, "INVALID_AMOUNT");
 });

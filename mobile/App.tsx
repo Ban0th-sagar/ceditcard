@@ -1,3 +1,5 @@
+import { BrandIntro, LoginScreen } from "./src/screens/AccessScreens";
+import { hasDemoAccess, rememberDemoAccess } from "./src/demo/access";
 import { MarketplaceScreen } from "./src/screens/MarketplaceScreen";
 import { OfferQuote, OfferType } from "./src/offerTypes";
 import {
@@ -18,6 +20,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { api } from "./src/api";
 import { Card, RoutingQuoteResult, Portfolio, RouteOption } from "./src/types";
@@ -41,6 +44,55 @@ const tabs: { name: Tab; icon: string }[] = [
   { name: "Profile", icon: "○" },
 ];
 export default function App() {
+  const [access, setAccess] = useState(hasDemoAccess);
+  const [intro, setIntro] = useState(true);
+  const dimensions = useWindowDimensions();
+  const desktop = dimensions.width >= 700;
+  useEffect(() => {
+    const timer = setTimeout(() => setIntro(false), 400);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#060B10",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={[
+          { backgroundColor: color.bg, width: "100%", maxWidth: 460, flex: 1 },
+          desktop && {
+            flex: 1,
+            maxHeight: Math.min(960, dimensions.height - 48),
+            marginVertical: 24,
+            borderWidth: 1,
+            borderColor: color.line,
+            borderRadius: 28,
+            overflow: "hidden",
+            boxShadow: "0 18px 80px rgba(0,0,0,0.4)",
+          },
+        ]}
+      >
+        {intro ? (
+          <BrandIntro />
+        ) : access ? (
+          <RelayApp
+            onLogout={() => {
+              rememberDemoAccess(false);
+              setAccess(false);
+            }}
+          />
+        ) : (
+          <LoginScreen onSignIn={() => setAccess(true)} />
+        )}
+      </View>
+    </View>
+  );
+}
+function RelayApp({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("Home");
   const [cards, setCards] = useState<Card[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -100,6 +152,13 @@ export default function App() {
     setShowResult(false);
     setError("");
     scroll.current?.scrollTo({ y: 0, animated: false });
+  }
+  function resetDemo() {
+    navigate("Optimize");
+    setSourceId("icici_amazon");
+    setDestinationId("hdfc_regalia");
+    setAmount("10000");
+    setResult(null);
   }
   function openCard(card: Card) {
     navigate("Cards");
@@ -269,7 +328,8 @@ export default function App() {
           onSelect={(value) => void selectOffer(value)}
         />
       );
-    if (tab === "Profile") return <ProfileScreen />;
+    if (tab === "Profile")
+      return <ProfileScreen onLogout={onLogout} onDemo={resetDemo} />;
     if (tab === "Activity")
       return (
         <ActivityScreen entries={entries}>
@@ -314,6 +374,7 @@ export default function App() {
           onCard={openCard}
           onOptimize={() => navigate("Optimize")}
           onMarketplace={() => openMarketplace()}
+          onDemo={resetDemo}
         />
       );
     if (tab === "Cards")
@@ -378,7 +439,7 @@ export default function App() {
         <View style={s.header}>
           <View style={ui.row}>
             <Text style={s.logo}>r/</Text>
-            <Text style={s.brand}>relay</Text>
+            <Text style={s.brand}>Relay</Text>
           </View>
           <Badge label="SIMULATION MODE" />
         </View>
@@ -455,7 +516,7 @@ export default function App() {
 }
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: color.bg },
-  shell: { flex: 1, width: "100%", maxWidth: 760, alignSelf: "center" },
+  shell: { flex: 1, width: "100%", maxWidth: 460, alignSelf: "center" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -477,7 +538,7 @@ const s = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -1,
   },
-  content: { padding: 20, paddingTop: 28, paddingBottom: 30, gap: 24 },
+  content: { padding: 18, paddingTop: 22, paddingBottom: 30, gap: 24 },
   loading: { paddingVertical: 70, alignItems: "center", gap: 20 },
   disclaimer: {
     color: color.muted,

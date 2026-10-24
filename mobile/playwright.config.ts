@@ -1,9 +1,11 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from "@playwright/test";
 export default defineConfig({
-  testDir: './tests',
+  testDir: "./tests",
   use: {
-    baseURL: 'http://127.0.0.1:8000',
+    baseURL: process.env.RELAY_TEST_BASE_URL ?? "http://127.0.0.1:8000",
     viewport: { width: 390, height: 844 },
-    launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
+    launchOptions: process.env.CHROMIUM_PATH
+      ? { executablePath: process.env.CHROMIUM_PATH }
+      : {},
   },
 });

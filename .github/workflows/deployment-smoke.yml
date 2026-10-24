@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - feature/live-demo-deployment
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

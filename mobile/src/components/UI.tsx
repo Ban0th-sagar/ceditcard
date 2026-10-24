@@ -3,8 +3,15 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Card } from "../types";
 import { color, due, money, ui } from "../theme";
 
-export function Surface({ children }: PropsWithChildren) {
-  return <View style={ui.surface}>{children}</View>;
+export function Surface({
+  children,
+  testID,
+}: PropsWithChildren<{ testID?: string }>) {
+  return (
+    <View testID={testID} style={ui.surface}>
+      {children}
+    </View>
+  );
 }
 export function Badge({ label }: { label: string }) {
   return (
@@ -123,7 +130,9 @@ export function CardVisual({ card }: { card: Card }) {
 export function CardTile({
   card,
   onPress,
+  compact = false,
 }: {
+  compact?: boolean;
   card: Card;
   onPress: () => void;
 }) {
@@ -146,13 +155,21 @@ export function CardTile({
             {card.network} · •••• {card.last_four}
           </Text>
         </View>
-        <Text style={{ color: color.accent, fontSize: 24 }}>↗</Text>
+        <Text style={{ color: color.accent, fontSize: 24 }}>›</Text>
       </View>
       <View style={ui.row}>
         <Stat label="Outstanding" value={money(card.outstanding)} />
         <Stat label="Available credit" value={money(card.available_limit)} />
       </View>
-      <Meter value={card.utilization} />
+      {!compact && (
+        <>
+          <View style={ui.row}>
+            <Stat label="Credit limit" value={money(card.credit_limit)} />
+            <Stat label="Minimum due" value={money(card.minimum_due)} />
+          </View>
+          <Meter value={card.utilization} />
+        </>
+      )}
       <View style={ui.row}>
         <Text style={ui.label}>
           {card.utilization}% utilized · Limit {money(card.credit_limit)}
@@ -174,7 +191,7 @@ export function ActivityRow({
   return (
     <View style={s.activity}>
       <View style={s.activityDot}>
-        <Text style={{ color: color.teal }}>↗</Text>
+        <Text style={{ color: color.teal }}>›</Text>
       </View>
       <View style={ui.flex}>
         <Text style={ui.value}>{title}</Text>

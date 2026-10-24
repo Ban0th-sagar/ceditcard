@@ -5,6 +5,23 @@ policies, fees, interest, and recommendations are **mock simulations**. Issuer
 names identify fictional demo cards and imply no issuer/network support. No
 payments, bank connections, sensitive credentials, or money movement exist.
 
+## Relay 0.6 presentation demo
+
+Sign in locally with **demo@relay.app / Relay@123**, or use **Autofill demo
+credentials**. This is a public demo UI gate, not real authentication; no
+financial account is connected. Logout is in Profile.
+
+Start with **CheQ Demo** on Home/Profile for ICICI-like → HDFC-like / ₹10,000.
+Use **Find Best Route**, inspect the backend recommendation/details, select an
+eligible route, confirm **Simulate Route**, then **Auto Demo**. Every automatic
+step still calls the protected backend state machine. Manual, failure and
+cancellation demos remain available. Activity separates your actual demo
+simulations from example history.
+
+See [the exact presenter guide, technical Q&A and screenshots](docs/cheq-demo.md).
+The backend financial rules and Phase 1–5 protections are unchanged. The original
+dark UI is optimized for 390 × 844, 430 × 932 and a centered desktop frame.
+
 ## Features
 
 - Four mock cards; portfolio outstanding, available credit, utilization, and next due card.
@@ -107,7 +124,7 @@ CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
 The 65 Python tests cover portfolio totals, eligible/ineligible routes, six
-checks, amount/route limits, unknown cards, and lowest-cost selection. The 23
+checks, amount/route limits, unknown cards, and lowest-cost selection. The 36
 Playwright tests preserve the acceptance demo at a phone viewport and cover
 the original five endpoints plus quote/capabilities, invalid HTTP inputs, amount
 feedback, all tabs/card details, backend rationale, route details/blockers,
@@ -118,7 +135,7 @@ session activity, and error/empty-state recovery. No separate lint script is con
 1. Open the dashboard and inspect the four mock cards and next-due summary.
 2. Tap **Optimize My Credit**. Source defaults to **ICICI Amazon Pay**, destination
    to **HDFC Regalia**; amount defaults to **₹10,000**.
-3. Tap **Check eligibility & optimize**. All six checks pass; all four quotes
+3. Tap **Find Best Route**. All six checks pass; all four quotes
    appear. Card-to-Card is recommended with a simulated total of **₹10,125**.
 4. Tap **Change route**, choose **Axis ACE** as source, and rerun. The source
    program check fails, Card-to-Card is unavailable, and fallback routes remain
@@ -130,8 +147,8 @@ session activity, and error/empty-state recovery. No separate lint script is con
 Data is static, in memory, and not tied to real accounts. The next due card is
 the earliest mock due date. The normal-repayment quote illustrates carrying a
 balance rather than interest-free full repayment; all prices are illustrative,
-not validated offers or financial advice. There is no authentication,
-persistence, transaction submission, or real issuer/network integration.
+not validated offers or financial advice. There is no real authentication, durable persistence, payment submission, or
+real issuer/network integration; the demo login is only a local UI gate.
 
 ## Phase 2 UI (issue #3)
 
@@ -244,3 +261,27 @@ Run instructions are unchanged and no dependencies were added. Existing
 Phase 1–4 test files remain unchanged; 19 new Python and six new Playwright tests
 cover offer rules, paise rounding, neutral ranking, route integration,
 revalidation, details, protection cases and simulated settlement/Activity.
+
+## Production container and demo verification
+
+```bash
+docker build -t relay-cheq-demo .
+docker run --rm --name relay-cheq-demo -p 8000:8000 -e PORT=8000 relay-cheq-demo
+# In another terminal:
+curl --fail http://127.0.0.1:8000/api/health
+```
+
+Behind a trusted corporate/cloud TLS proxy, optionally mount the host CA bundle
+at build time without disabling verification:
+
+```bash
+docker build --secret id=build_ca,src=/etc/ssl/certs/ca-certificates.crt -t relay-cheq-demo .
+```
+
+No certificate is copied into the image. The container has an API health check,
+and deployment smoke CI also runs on PRs into main. Browser checks can target
+any local test origin via `RELAY_TEST_BASE_URL` (default port 8000). The demo
+capture script stores real running-app previews under `docs/previews/cheq-demo/`.
+See the guide for exact test/capture commands and known limitations, including
+in-memory history, unverified native builds and inherited dependency findings.
+No public deployment or real payment integration is created by this work.

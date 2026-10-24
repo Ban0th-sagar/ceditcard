@@ -1,4 +1,5 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, selectCard, technicalError } from "./fixtures";
+import type { Page } from "@playwright/test";
 
 const demo = {
   source_card_id: "icici_amazon",
@@ -10,7 +11,7 @@ async function confirmation(page: Page) {
   await page.goto("/");
   await page.getByRole("tab", { name: "Optimize", exact: true }).click();
   await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
   await page
     .getByTestId("route-card_to_card")
@@ -253,11 +254,9 @@ test("blocked Card-to-Card cannot be selected but fallback remains selectable", 
 }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Optimize", exact: true }).click();
+  await selectCard(page, "source", "Axis ACE");
   await page
-    .getByRole("radio", { name: "source: Axis ACE", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
   await expect(
     page.getByTestId("route-card_to_card").getByRole("button", {
@@ -307,7 +306,7 @@ test("rejected backend recheck stays on confirmation and can retry", async ({
     page.getByRole("button", { name: "Creating simulation…", exact: true }),
   ).toBeDisabled();
   release();
-  await expect(page.getByRole("alert")).toContainText("ROUTE_INELIGIBLE");
+  await technicalError(page, "ROUTE_INELIGIBLE");
   await expect(
     page.getByText("Confirm simulation", { exact: true }),
   ).toBeVisible();

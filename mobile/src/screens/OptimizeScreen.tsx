@@ -1,60 +1,12 @@
+import { CardSelector } from "../components/CardSelector";
+import { ErrorNotice } from "../components/ErrorNotice";
 import type { OfferType } from "../offerTypes";
 import { CostBreakdown } from "../components/RouteCosts";
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { Card, RoutingQuoteResult, RouteOption } from "../types";
-import { Badge, Button, Heading, Surface } from "../components/UI";
+import { Badge, Button, Heading, Surface, Stat } from "../components/UI";
 import { color, money, ui } from "../theme";
-function CardChoice({
-  card,
-  selected,
-  onPress,
-  purpose,
-}: {
-  card: Card;
-  selected: boolean;
-  onPress: () => void;
-  purpose: "source" | "destination";
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityLabel={`${purpose}: ${card.issuer} ${card.name}`}
-      accessibilityState={{ checked: selected }}
-      aria-checked={selected}
-      onPress={onPress}
-      style={({ pressed }) => [
-        {
-          padding: 14,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: selected ? color.accent : color.line,
-          backgroundColor: selected ? "#24322B" : color.surface,
-          opacity: pressed ? 0.8 : 1,
-        },
-      ]}
-    >
-      <View style={ui.row}>
-        <View style={ui.flex}>
-          <Text style={ui.value}>
-            {card.issuer} {card.name}
-          </Text>
-          <Text style={ui.label}>
-            •••• {card.last_four} ·{" "}
-            {purpose === "source"
-              ? `Available ${money(card.available_limit)}`
-              : `Outstanding ${money(card.outstanding)}`}
-          </Text>
-        </View>
-        <Text
-          style={{ color: selected ? color.accent : color.muted, fontSize: 22 }}
-        >
-          {selected ? "◉" : "○"}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
 type Props = {
   cards: Card[];
   sourceId: string;
@@ -84,36 +36,26 @@ export function OptimizeScreen({
   return (
     <View style={ui.stack}>
       <Heading
-        title="Find a clearer route."
-        subtitle="Compare your options, with eligibility before everything."
+        title="Optimize your credit."
+        subtitle="Choose two demo cards. Let Relay compare the options."
       />
-      <Badge label="MOCK ELIGIBILITY · SIMULATION ONLY" />
-      <Button label="Open Marketplace" onPress={onMarketplace} secondary />
-      <Text style={ui.eyebrow}>01 / SOURCE CARD</Text>
-      <Text style={ui.h2}>Where from?</Text>
-      {cards.map((card) => (
-        <CardChoice
-          key={card.id}
-          card={card}
-          selected={sourceId === card.id}
-          onPress={() => setSource(card.id)}
-          purpose="source"
-        />
-      ))}
-      <Text style={ui.eyebrow}>02 / DESTINATION CARD</Text>
-      <Text style={ui.h2}>Which balance?</Text>
-      {cards.map((card) => (
-        <CardChoice
-          key={card.id}
-          card={card}
-          selected={destinationId === card.id}
-          onPress={() => setDestination(card.id)}
-          purpose="destination"
-        />
-      ))}
-      <Text style={ui.eyebrow}>03 / AMOUNT TO EXPLORE</Text>
-      <Surface>
-        <Text style={ui.value}>Amount</Text>
+      <Badge label="Simulation Mode" />
+      <CardSelector
+        cards={cards}
+        value={sourceId}
+        onChange={setSource}
+        purpose="source"
+        disabled={busy}
+      />
+      <CardSelector
+        cards={cards}
+        value={destinationId}
+        onChange={setDestination}
+        purpose="destination"
+        disabled={busy}
+      />
+      <Text style={ui.eyebrow}>AMOUNT</Text>
+      <View style={[ui.surface, { padding: 16 }]}>
         <View style={ui.row}>
           <Text style={{ color: color.accent, fontSize: 30 }}>₹</Text>
           <TextInput
@@ -121,6 +63,7 @@ export function OptimizeScreen({
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={setAmount}
+            editable={!busy}
             placeholder="10000"
             placeholderTextColor={color.muted}
             style={{
@@ -129,28 +72,29 @@ export function OptimizeScreen({
               fontWeight: "700",
               flex: 1,
               minWidth: 0,
-              paddingVertical: 12,
+              paddingVertical: 5,
             }}
           />
         </View>
-        <Text style={ui.label}>Estimates only. No money will move.</Text>
-      </Surface>
-      {error ? (
-        <Text
-          accessibilityRole="alert"
-          style={{ color: color.danger, lineHeight: 22 }}
-        >
-          {error}
-        </Text>
-      ) : null}
+      </View>
+      {error ? <ErrorNotice message={error} /> : null}
       <Button
-        label={busy ? "Checking routes…" : "Check eligibility & optimize"}
+        label={busy ? "Finding routes…" : "Find Best Route"}
         onPress={onRun}
         disabled={busy}
       />
       <Text style={ui.body}>
-        Six simulated checks. Four possible routes. One recommendation based on
-        eligible mock quotes.
+        Relay checks eligibility, estimated cost and available simulated
+        alternatives.
+      </Text>
+      <Button
+        label="Open Marketplace"
+        onPress={onMarketplace}
+        secondary
+        disabled={busy}
+      />
+      <Text style={ui.label}>
+        Illustrative data · No money moved · No live issuer/network integration
       </Text>
     </View>
   );
@@ -169,8 +113,10 @@ function BlockingReasons({ route }: { route: RouteOption }) {
 function RouteDetails({
   route,
   onBack,
+  onSelect,
 }: {
   route: RouteOption;
+  onSelect: (route: RouteOption) => void;
   onBack: () => void;
 }) {
   return (
@@ -188,6 +134,19 @@ function RouteDetails({
         <Text style={ui.body}>{route.processing_time_label}</Text>
         <CostBreakdown route={route} />
       </Surface>
+      {route.route_type === "card_to_card" && (
+        <Text style={ui.body}>
+          This is a prototype simulation and does not confirm that an issuer,
+          card network or payment provider supports this transaction in
+          production.
+        </Text>
+      )}
+      {route.eligible && (
+        <Button
+          label={`Select ${route.display_name}`}
+          onPress={() => onSelect(route)}
+        />
+      )}
       <Text style={ui.h2}>Simulated eligibility checks</Text>
       {route.checks.map((check) => (
         <Surface key={check.key}>
@@ -252,6 +211,7 @@ export function ResultScreen({
     return (
       <RouteDetails
         route={selected}
+        onSelect={onSelect}
         onBack={() => {
           setSelected(null);
           onTop();
@@ -299,27 +259,22 @@ export function ResultScreen({
           </View>
         )}
       </Surface>
-      <Text style={ui.h2}>Eligibility</Text>
-      {result.checks.map((check, index) => (
-        <Surface key={check.key}>
-          <View style={ui.row}>
-            <Text style={ui.label}>{String(index + 1).padStart(2, "0")}</Text>
-            <View style={ui.flex}>
-              <Text style={ui.value}>{check.label}</Text>
-              <Text style={ui.body}>{check.message}</Text>
-            </View>
-            <Text
-              style={{
-                color: check.passed ? color.teal : color.danger,
-                fontSize: 11,
-                fontWeight: "800",
-              }}
-            >
-              {check.passed ? "PASS" : "FAIL"}
-            </Text>
-          </View>
-        </Surface>
-      ))}
+      {!result.routes.find((route) => route.id === "card_to_card")
+        ?.eligible && (
+        <View style={[ui.surface, { borderColor: "#613E41" }]}>
+          <Text style={ui.value}>
+            Card-to-Card is unavailable for this simulated card pair.
+          </Text>
+          <Text style={ui.body}>
+            {
+              result.routes.filter(
+                (route) => route.eligible && route.id !== "card_to_card",
+              ).length
+            }{" "}
+            alternative routes available.
+          </Text>
+        </View>
+      )}
       <Text style={ui.h2}>Compare routes</Text>
       {result.routes.map((route) => (
         <View
@@ -339,8 +294,17 @@ export function ResultScreen({
               <Badge label="RECOMMENDED" />
             )}
           </View>
-          <Text style={ui.body}>{route.explanation}</Text>
-          <CostBreakdown route={route} />
+          <View style={ui.wrap}>
+            <Stat
+              label="Total estimated cost"
+              value={money(route.estimated_total_cost)}
+            />
+            <Stat label="Fee" value={money(route.estimated_fee)} />
+            <Stat
+              label="Est. interest"
+              value={money(route.estimated_interest)}
+            />
+          </View>
           {(route.id === "balance_transfer" || route.id === "refinancing") && (
             <>
               {result.marketplace_offers
@@ -361,16 +325,6 @@ export function ResultScreen({
           )}
 
           <Text style={ui.label}>{route.processing_time_label}</Text>
-          {route.pros.slice(0, 1).map((text) => (
-            <Text key={text} style={{ color: color.teal }}>
-              + {text}
-            </Text>
-          ))}
-          {route.cons.slice(0, 1).map((text) => (
-            <Text key={text} style={ui.body}>
-              − {text}
-            </Text>
-          ))}
           {!route.eligible && (
             <>
               <Text style={{ color: color.danger }}>
@@ -393,6 +347,35 @@ export function ResultScreen({
             }}
             secondary
           />
+        </View>
+      ))}
+      <Text style={ui.h2}>Eligibility</Text>
+      <Text style={ui.label}>
+        Six simulated Card-to-Card summary checks. Open Route Details for all
+        rules.
+      </Text>
+      {result.checks.map((check) => (
+        <View
+          key={check.key}
+          style={[
+            ui.row,
+            {
+              paddingVertical: 8,
+              borderBottomWidth: 1,
+              borderColor: color.line,
+            },
+          ]}
+        >
+          <Text style={[ui.body, ui.flex]}>{check.label}</Text>
+          <Text
+            style={{
+              color: check.passed ? color.teal : color.danger,
+              fontWeight: "800",
+              fontSize: 11,
+            }}
+          >
+            {check.passed ? "PASS" : "FAIL"}
+          </Text>
         </View>
       ))}
       <Button label="Back to portfolio" onPress={onHome} secondary />

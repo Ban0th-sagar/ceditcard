@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, selectCard, technicalError } from "./fixtures";
 const demo = {
   source_card_id: "icici_amazon",
   destination_card_id: "hdfc_regalia",
@@ -119,7 +119,7 @@ test("all four route details and backend rationale are inspectable", async ({
       r.url().endsWith("/api/routes/quote") && r.request().method() === "POST",
   );
   await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
   const quote = await (await pending).json();
   await page
@@ -167,11 +167,9 @@ test("Axis blockers, fallback details and same-card UI feedback", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Optimize", exact: true }).click();
+  await selectCard(page, "source", "Axis ACE");
   await page
-    .getByRole("radio", { name: "source: Axis ACE", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
   const blocked = page.getByTestId("route-card_to_card");
   await expect(
@@ -204,14 +202,10 @@ test("Axis blockers, fallback details and same-card UI feedback", async ({
   await page
     .getByRole("button", { name: "‹ Change route", exact: true })
     .click();
+  await selectCard(page, "source", "ICICI Amazon Pay");
+  await selectCard(page, "destination", "ICICI Amazon Pay");
   await page
-    .getByRole("radio", { name: "source: ICICI Amazon Pay", exact: true })
-    .click();
-  await page
-    .getByRole("radio", { name: "destination: ICICI Amazon Pay", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
   await expect(
     page.getByText("No eligible route", { exact: true }),
@@ -237,14 +231,15 @@ test("structured API errors can be retried", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Optimize", exact: true }).click();
   await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toHaveText(
+  await technicalError(
+    page,
     "CARD_NOT_FOUND: The selected mock card was not found.",
   );
   await page.unroute("**/api/routes/quote");
   await page
-    .getByRole("button", { name: "Check eligibility & optimize", exact: true })
+    .getByRole("button", { name: "Find Best Route", exact: true })
     .click();
   await expect(
     page.getByText("Estimated total: ₹10,125", { exact: true }),
