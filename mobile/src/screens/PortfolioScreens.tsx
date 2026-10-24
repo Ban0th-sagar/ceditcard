@@ -22,6 +22,7 @@ export type ActivityEntry = {
 };
 type PortfolioProps = {
   onMarketplace: () => void;
+  onDemo: () => void;
   cards: Card[];
   portfolio: Portfolio;
   onOptimize: () => void;
@@ -33,120 +34,93 @@ export function HomeScreen({
   onOptimize,
   onCard,
   onMarketplace,
+  onDemo,
 }: PortfolioProps) {
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12
+      ? "Good morning, Alex"
+      : hour < 18
+        ? "Good afternoon, Alex"
+        : "Good evening, Alex";
   return (
     <View style={ui.stack}>
       <View style={ui.row}>
-        <View>
-          <Text style={ui.label}>YOUR MONEY, IN PERSPECTIVE</Text>
-          <Heading title="Hello, Alex." />
+        <View style={ui.flex}>
+          <Text style={ui.label}>YOUR NEXT MOVE, MADE CLEARER</Text>
+          <Text
+            accessibilityRole="header"
+            style={[ui.h2, { fontSize: 26, marginTop: 4 }]}
+          >
+            {greeting}
+          </Text>
         </View>
-        <View
-          style={{
-            width: 46,
-            height: 46,
-            backgroundColor: color.raised,
-            borderRadius: 23,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={ui.value}>A</Text>
-        </View>
+        <Badge label="DEMO USER" />
       </View>
       <Surface>
-        <View style={ui.row}>
-          <Text style={ui.eyebrow}>YOUR CREDIT PORTFOLIO</Text>
-          <Badge label="MOCK DATA" />
-        </View>
+        <Text style={ui.eyebrow}>YOUR CREDIT</Text>
         <Text style={ui.body}>Total outstanding</Text>
         <Text
           style={{
             color: color.ink,
-            fontSize: 48,
+            fontSize: 44,
             fontWeight: "800",
-            letterSpacing: -2,
+            letterSpacing: -1.5,
           }}
         >
           {money(portfolio.total_outstanding)}
         </Text>
-        <View style={ui.divider} />
         <View style={ui.row}>
           <Stat
             label="Available credit"
             value={money(portfolio.available_credit)}
           />
           <Stat
-            label="Portfolio utilization"
+            label="Overall utilization"
             value={`${portfolio.utilization}%`}
           />
         </View>
         <Meter value={portfolio.utilization} />
+        <View style={ui.divider} />
+        <Text style={ui.label}>NEXT DUE · MOCK CARD</Text>
+        <View style={ui.row}>
+          <View style={ui.flex}>
+            <Text style={ui.value}>
+              {portfolio.next_due.issuer} {portfolio.next_due.name}
+            </Text>
+            <Text style={ui.label}>
+              Next payment due · {due(portfolio.next_due.due_date)}
+            </Text>
+          </View>
+          <Text style={ui.value}>{money(portfolio.next_due.minimum_due)}</Text>
+        </View>
       </Surface>
       <Button label="Optimize My Credit" onPress={onOptimize} />
+      <View style={[ui.surface, { padding: 16, borderColor: "#36514A" }]}>
+        <Text style={ui.eyebrow}>SMART INSIGHT</Text>
+        <Text style={ui.body}>
+          You may have a lower-cost simulated route available for your next
+          obligation.
+        </Text>
+      </View>
+      <View style={ui.row}>
+        <Text style={ui.h2}>Your demo cards</Text>
+        <Text style={ui.label}>{cards.length} illustrative records</Text>
+      </View>
+      {cards.map((card) => (
+        <CardTile
+          key={card.id}
+          card={card}
+          onPress={() => onCard(card)}
+          compact
+        />
+      ))}
       <Button
         label="Explore fictional Marketplace"
         onPress={onMarketplace}
         secondary
       />
-      <Text style={ui.label}>
-        Explore your options. Every route is a simulation.
-      </Text>
-      <Surface>
-        <Text style={ui.eyebrow}>NEXT DUE · MOCK CARD</Text>
-        <Text style={ui.h2}>
-          {portfolio.next_due.issuer} {portfolio.next_due.name}
-        </Text>
-        <View style={ui.row}>
-          <Stat
-            label="Nearest due date"
-            value={due(portfolio.next_due.due_date)}
-          />
-          <Stat
-            label="Minimum due"
-            value={money(portfolio.next_due.minimum_due)}
-          />
-        </View>
-      </Surface>
-      <Text accessibilityRole="header" style={ui.h2}>
-        Your cards{" "}
-        <Text style={ui.label}>
-          / {cards.length.toString().padStart(2, "0")}
-        </Text>
-      </Text>
-      {cards.map((card) => (
-        <CardTile key={card.id} card={card} onPress={() => onCard(card)} />
-      ))}
-      <Surface>
-        <Text style={ui.eyebrow}>UPCOMING BILLS / DEMO SCHEDULE</Text>
-        {[...cards]
-          .sort((a, b) => a.due_date.localeCompare(b.due_date))
-          .map((card) => (
-            <View key={card.id} style={ui.row}>
-              <View style={ui.flex}>
-                <Text style={ui.value}>
-                  {card.issuer} {card.name}
-                </Text>
-                <Text style={ui.label}>
-                  {due(card.due_date)} · Minimum {money(card.minimum_due)}
-                </Text>
-              </View>
-              <Text style={ui.value}>{money(card.outstanding)}</Text>
-            </View>
-          ))}
-      </Surface>
-      <Surface>
-        <Text style={ui.eyebrow}>A LITTLE CLARITY</Text>
-        <Text style={ui.h2}>One portfolio. More perspective.</Text>
-        <Text style={ui.body}>
-          Your {cards.length} mock cards use {portfolio.utilization}% of the
-          portfolio limit. Compare simulated routes before choosing how to
-          approach a balance.
-        </Text>
-        <Text style={{ color: color.teal, fontSize: 12 }}>
-          Illustrative insight · Not financial advice
-        </Text>
-      </Surface>
+      <Button label="CheQ Demo" onPress={onDemo} secondary />
     </View>
   );
 }
@@ -248,7 +222,7 @@ export function ActivityScreen({
         )}
       </Surface>
       <Surface>
-        <Text style={ui.eyebrow}>ILLUSTRATIVE HISTORY</Text>
+        <Text style={ui.eyebrow}>Example activity</Text>
         <ActivityRow
           title="Route evaluated"
           detail="Mock alternatives compared. No transaction submitted."
@@ -263,13 +237,16 @@ export function ActivityScreen({
     </View>
   );
 }
-export function ProfileScreen() {
+export function ProfileScreen({
+  onLogout,
+  onDemo,
+}: {
+  onLogout: () => void;
+  onDemo: () => void;
+}) {
   return (
     <View style={ui.stack}>
-      <Heading
-        title="Made for perspective."
-        subtitle="Your Relay prototype profile."
-      />
+      <Heading title="Alex" subtitle="Demo User · Relay Prototype" />
       <Surface>
         <View style={ui.row}>
           <View>
@@ -299,11 +276,15 @@ export function ProfileScreen() {
       </Surface>
       <Surface>
         <Stat label="Product" value="Relay · Credit routing prototype" />
-        <Stat label="Version" value="0.1.0 · Phase 2 UI" />
+        <Stat label="Version" value="0.6 Demo" />
+        <Text style={ui.h2}>About Relay</Text>
         <Text style={ui.body}>
-          Built to make credit understandable, with Optimize at the center.
+          Relay is an experimental decision and routing layer for comparing
+          simulated credit repayment options.
         </Text>
       </Surface>
+      <Button label="CheQ Demo" onPress={onDemo} />
+      <Button label="Logout" onPress={onLogout} secondary />
     </View>
   );
 }

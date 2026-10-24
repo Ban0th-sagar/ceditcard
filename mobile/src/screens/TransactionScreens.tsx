@@ -1,3 +1,5 @@
+import { ErrorNotice } from "../components/ErrorNotice";
+import { AppState } from "react-native";
 import { OfferEconomics } from "../components/OfferEconomics";
 import type { OfferQuote } from "../offerTypes";
 import React, { useEffect, useRef, useState } from "react";
@@ -9,7 +11,7 @@ import {
   SimulatedTransaction,
   TransactionStatus,
 } from "../transactionTypes";
-import { Badge, Button, Heading, State, Surface } from "../components/UI";
+import { Badge, Button, Heading, State, Surface, Stat } from "../components/UI";
 import { CostBreakdown } from "../components/RouteCosts";
 import { color, money, ui } from "../theme";
 
@@ -28,8 +30,10 @@ const time = (value: string) => new Date(value).toLocaleString("en-IN");
 export function SimulationNotice() {
   return (
     <Surface>
-      <Badge label="Simulation Mode" />
-      <Text style={ui.value}>No money moved</Text>
+      <View style={ui.row}>
+        <Badge label="Simulation Mode" />
+        <Text style={ui.value}>No money moved</Text>
+      </View>
       <Text style={ui.body}>
         No bank/network/issuer integration. All events are local simulations.
       </Text>
@@ -60,14 +64,13 @@ export function ConfirmationScreen({
         title="Confirm simulation"
         subtitle="Review the mock route before creating a local simulation."
       />
-      <SimulationNotice />
       <Surface>
-        <Text style={ui.label}>Source card</Text>
+        <Text style={ui.label}>FROM</Text>
         <Text style={ui.value}>
           {result.source.issuer} {result.source.name} · ••••{" "}
           {result.source.last_four}
         </Text>
-        <Text style={ui.label}>Destination card</Text>
+        <Text style={ui.label}>TO</Text>
         <Text style={ui.value}>
           {result.destination.issuer} {result.destination.name} · ••••{" "}
           {result.destination.last_four}
@@ -75,8 +78,8 @@ export function ConfirmationScreen({
         <Text style={ui.h2}>{route.display_name}</Text>
         <CostBreakdown route={route} />
         <Text style={ui.body}>
-          The backend will re-check eligibility and recalculate this quote.
-          Client-supplied costs are never used.
+          No money will move. The backend will re-check route eligibility, offer
+          eligibility, pricing and route selection.
         </Text>
       </Surface>
       {offer && (
@@ -85,10 +88,29 @@ export function ConfirmationScreen({
           <Text style={ui.h2}>
             {offer.offer.provider_name} · {offer.offer.headline}
           </Text>
-          <OfferEconomics quote={offer} />
+          <View style={ui.wrap}>
+            <Stat label="Tenure" value={`${offer.tenure_months} months`} />
+            <Stat
+              label="Monthly estimate"
+              value={money(offer.monthly_payment_estimate)}
+            />
+          </View>
           <Text style={ui.body}>{offer.disclaimer}</Text>
         </Surface>
       )}
+      <SimulationNotice />
+      {error ? <ErrorNotice message={error} /> : null}
+      <Button
+        label={busy ? "Creating simulation…" : "Simulate Route"}
+        onPress={() => onConfirm(outcome)}
+        disabled={busy}
+      />
+      <Button
+        label="‹ Back to route results"
+        onPress={onBack}
+        disabled={busy}
+        secondary
+      />
       <Surface>
         <Text style={ui.h2}>Controlled demo outcome</Text>
         {(["success", "fail_processing"] as const).map((value) => (
@@ -119,22 +141,6 @@ export function ConfirmationScreen({
           Failure is deterministic and local. No bank or network is contacted.
         </Text>
       </Surface>
-      {error ? (
-        <Text accessibilityRole="alert" style={{ color: color.danger }}>
-          {error}
-        </Text>
-      ) : null}
-      <Button
-        label={busy ? "Creating simulation…" : "Simulate Route"}
-        onPress={() => onConfirm(outcome)}
-        disabled={busy}
-      />
-      <Button
-        label="‹ Back to route results"
-        onPress={onBack}
-        disabled={busy}
-        secondary
-      />
     </View>
   );
 }
@@ -149,27 +155,63 @@ export function TransactionTimeline({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const locked = useRef(false);
+  const [auto, setAuto] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") setAuto(false);
+    });
+    const pause = () => {
+      if (typeof document !== "undefined" && document.hidden) setAuto(false);
+    };
+    if (typeof document !== "undefined")
+      document.addEventListener("visibilitychange", pause);
+    return () => {
+      sub.remove();
+      if (typeof document !== "undefined")
+        document.removeEventListener("visibilitychange", pause);
+    };
+  }, []);
+  useEffect(() => {
+    if (!auto || busy) return;
+    if (!transaction.allowed_actions.includes("advance")) {
+      setAuto(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void mutate("advance");
+    }, 650);
+    return () => clearTimeout(timer);
+  }, [auto, busy, transaction]);
   async function mutate(action: "advance" | "cancel" | "refresh") {
     if (locked.current) return;
     locked.current = true;
     setBusy(true);
     setError("");
+    if (action !== "advance") setAuto(false);
     try {
-      setTransaction(
-        await (action === "refresh"
-          ? api.transaction(transaction.id)
-          : action === "advance"
-            ? api.advanceTransaction(transaction.id, transaction.status)
-            : api.cancelTransaction(transaction.id, transaction.status)),
-      );
+      const next = await (action === "refresh"
+        ? api.transaction(transaction.id)
+        : action === "advance"
+          ? api.advanceTransaction(transaction.id, transaction.status)
+          : api.cancelTransaction(transaction.id, transaction.status));
+      if (mounted.current) setTransaction(next);
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not update simulation. Refresh and try again.",
-      );
+      setAuto(false);
+      if (mounted.current)
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Could not update simulation. Refresh and try again.",
+        );
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
       locked.current = false;
     }
   }
@@ -180,6 +222,13 @@ export function TransactionTimeline({
         subtitle={transaction.quote_snapshot.display_name}
       />
       <SimulationNotice />
+      {transaction.status === "SIMULATED_SETTLED" && (
+        <View style={[ui.surface, { borderColor: color.accent }]}>
+          <Text style={ui.eyebrow}>SIMULATED SETTLED</Text>
+          <Text style={ui.h2}>Simulation completed</Text>
+          <Text style={ui.body}>No money moved.</Text>
+        </View>
+      )}
       <Surface>
         <Text style={ui.eyebrow}>CURRENT SIMULATED STATE</Text>
         <Text testID="transaction-status" style={ui.h2}>
@@ -191,9 +240,53 @@ export function TransactionTimeline({
           {transaction.source.issuer} → {transaction.destination.issuer} ·{" "}
           {money(transaction.amount)}
         </Text>
-        <CostBreakdown route={transaction.quote_snapshot} />
+
         <Text style={ui.label}>Created {time(transaction.created_at)}</Text>
         <Text style={ui.label}>Updated {time(transaction.updated_at)}</Text>
+      </Surface>
+      <Surface>
+        <Text style={ui.eyebrow}>LOCAL SIMULATION CONTROLS</Text>
+        <Text style={ui.body}>
+          Every step is confirmed by the backend. No payment rail is connected.
+        </Text>
+        {transaction.allowed_actions.includes("advance") && (
+          <>
+            <Button
+              label={auto ? "Auto Demo running…" : "Auto Demo"}
+              onPress={() => setAuto(true)}
+              disabled={auto || busy}
+            />
+            <Button
+              label="Manual mode"
+              onPress={() => setAuto(false)}
+              secondary
+            />
+          </>
+        )}
+        {transaction.next_status && (
+          <Text style={ui.body}>
+            Next local step: {labels[transaction.next_status]}
+          </Text>
+        )}
+        {transaction.allowed_actions.includes("advance") && (
+          <Button
+            label="Advance simulation"
+            onPress={() => void mutate("advance")}
+            disabled={busy || auto}
+          />
+        )}
+        {transaction.allowed_actions.includes("cancel") && (
+          <Button
+            label="Cancel simulation"
+            onPress={() => void mutate("cancel")}
+            disabled={busy}
+            secondary
+          />
+        )}
+      </Surface>
+      <Surface>
+        <Text style={ui.h2}>Quoted costs</Text>
+        <CostBreakdown route={transaction.quote_snapshot} />
       </Surface>
       {transaction.offer_quote_snapshot && (
         <Surface>
@@ -232,31 +325,7 @@ export function TransactionTimeline({
           )}
         </Surface>
       ))}
-      {error && (
-        <Text accessibilityRole="alert" style={{ color: color.danger }}>
-          {error}
-        </Text>
-      )}
-      {transaction.next_status && (
-        <Text style={ui.body}>
-          Next local step: {labels[transaction.next_status]}
-        </Text>
-      )}
-      {transaction.allowed_actions.includes("advance") && (
-        <Button
-          label="Advance simulation"
-          onPress={() => void mutate("advance")}
-          disabled={busy}
-        />
-      )}
-      {transaction.allowed_actions.includes("cancel") && (
-        <Button
-          label="Cancel simulation"
-          onPress={() => void mutate("cancel")}
-          disabled={busy}
-          secondary
-        />
-      )}
+      {error && <ErrorNotice message={error} />}
       <Button
         label="Refresh timeline"
         onPress={() => void mutate("refresh")}
@@ -313,7 +382,7 @@ export function TransactionActivity({
   }
   return (
     <View style={ui.stack}>
-      <Text style={ui.h2}>Simulated transactions</Text>
+      <Text style={ui.h2}>Your demo simulations</Text>
       <Text style={ui.body}>
         Server-memory history. No money moved. No bank/network/issuer
         integration. History resets when the API restarts.
@@ -332,7 +401,7 @@ export function TransactionActivity({
         />
       ) : transactions.length ? (
         transactions.map((transaction) => (
-          <Surface key={transaction.id}>
+          <Surface key={transaction.id} testID={`simulation-${transaction.id}`}>
             <Badge label={labels[transaction.status]} />
             <Text style={ui.value}>
               {transaction.source.issuer} → {transaction.destination.issuer}

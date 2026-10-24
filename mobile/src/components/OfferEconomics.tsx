@@ -3,7 +3,13 @@ import { Text, View } from "react-native";
 import { OfferQuote } from "../offerTypes";
 import { Stat, Surface } from "./UI";
 import { money, ui } from "../theme";
-export function OfferEconomics({ quote }: { quote: OfferQuote }) {
+export function OfferEconomics({
+  quote,
+  compact = false,
+}: {
+  quote: OfferQuote;
+  compact?: boolean;
+}) {
   return (
     <View style={ui.stack}>
       <View style={ui.wrap}>
@@ -24,10 +30,12 @@ export function OfferEconomics({ quote }: { quote: OfferQuote }) {
           label="Monthly estimate"
           value={money(quote.monthly_payment_estimate)}
         />
-        <Stat
-          label="Final installment"
-          value={money(quote.final_payment_estimate)}
-        />
+        {!compact && (
+          <Stat
+            label="Final installment"
+            value={money(quote.final_payment_estimate)}
+          />
+        )}
       </View>
       <Text style={ui.body}>{quote.offer.processing_time_label}</Text>
       <Text style={ui.label}>
@@ -38,21 +46,28 @@ export function OfferEconomics({ quote }: { quote: OfferQuote }) {
         }).format(quote.offer.annual_flat_rate)}{" "}
         · not a reducing-balance APR
       </Text>
-      <Surface>
-        <Stat
-          label="Illustrative savings vs baseline"
-          value={money(quote.estimated_savings)}
-        />
-        <Stat
-          label="Baseline total"
-          value={money(quote.baseline.estimated_total_cost)}
-        />
-        <Text style={ui.body}>{quote.baseline.label}</Text>
+      {compact ? (
         <Text style={ui.label}>
-          {quote.baseline.assumptions} Negative savings means this offer costs
-          more than the baseline.
+          Illustrative savings {money(quote.estimated_savings)} vs a
+          single-cycle baseline. See details for assumptions.
         </Text>
-      </Surface>
+      ) : (
+        <Surface>
+          <Stat
+            label="Illustrative savings vs baseline"
+            value={money(quote.estimated_savings)}
+          />
+          <Stat
+            label="Baseline total"
+            value={money(quote.baseline.estimated_total_cost)}
+          />
+          <Text style={ui.body}>{quote.baseline.label}</Text>
+          <Text style={ui.label}>
+            {quote.baseline.assumptions} Negative savings means this offer costs
+            more than the baseline.
+          </Text>
+        </Surface>
+      )}
     </View>
   );
 }

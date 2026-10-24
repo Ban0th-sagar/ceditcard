@@ -1,3 +1,5 @@
+import { CardSelector } from "../components/CardSelector";
+import { ErrorNotice } from "../components/ErrorNotice";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -38,7 +40,13 @@ function OfferCard({
               : "Ineligible fictional offer"
         }
       />
-      <OfferEconomics quote={quote} />
+      <Badge label="SIMULATED OFFER" />
+      <Text style={ui.label}>
+        {quote.offer.offer_type === "balance_transfer"
+          ? "Balance Transfer"
+          : "Refinancing"}
+      </Text>
+      <OfferEconomics quote={quote} compact />
       {quote.blocking_reasons.map((reason) => (
         <Text key={reason.code} style={{ color: color.danger }}>
           {reason.code}: {reason.message}
@@ -154,7 +162,10 @@ export function MarketplaceScreen({
           title="Offer Details"
           subtitle={`${selected.offer.provider_name} · ${selected.offer.headline}`}
         />
-        <Badge label="FICTIONAL / SIMULATION ONLY" />
+        <Badge label="SIMULATED OFFER" />
+        <Text style={ui.body}>
+          Illustrative pricing only. Not an actual lending offer.
+        </Text>
         <OfferEconomics quote={selected} />
         <Surface>
           <Text style={ui.h2}>Why this offer?</Text>
@@ -181,11 +192,7 @@ export function MarketplaceScreen({
           )}
         </Surface>
         <Text style={ui.body}>{selected.disclaimer}</Text>
-        {selectionError && (
-          <Text accessibilityRole="alert" style={{ color: color.danger }}>
-            {selectionError}
-          </Text>
-        )}
+        {selectionError && <ErrorNotice message={selectionError} />}
         {selected.eligible && (
           <Button
             label={`Select offer: ${selected.offer.headline}`}
@@ -218,29 +225,17 @@ export function MarketplaceScreen({
           not an approval or financial advice. No money moved.
         </Text>
       </Surface>
-      <Text style={ui.h2}>Destination card</Text>
-      {cards.map((card) => (
-        <Pressable
-          key={card.id}
-          accessibilityRole="radio"
-          accessibilityLabel={`Offer destination: ${card.issuer} ${card.name}`}
-          aria-checked={destinationId === card.id}
-          disabled={loading || busy}
-          onPress={() => {
-            onDestination(card.id);
-            setResponse(null);
-          }}
-          style={ui.surface}
-        >
-          <Text style={ui.value}>
-            {card.issuer} {card.name}{" "}
-            {destinationId === card.id ? "· Selected" : ""}
-          </Text>
-          <Text style={ui.label}>
-            Mock outstanding {money(card.outstanding)}
-          </Text>
-        </Pressable>
-      ))}
+      <CardSelector
+        cards={cards}
+        value={destinationId}
+        onChange={(value) => {
+          onDestination(value);
+          setResponse(null);
+        }}
+        purpose="destination"
+        label="DESTINATION CARD"
+        disabled={loading || busy}
+      />
       <Text style={ui.h2}>Amount to compare</Text>
       <TextInput
         accessibilityLabel="Marketplace amount"
@@ -253,21 +248,14 @@ export function MarketplaceScreen({
         }}
         style={[ui.surface, { color: color.ink, fontSize: 26 }]}
       />
-      <Text style={ui.body}>
-        Simulation source: {cards.find((card) => card.id === sourceId)?.issuer}.
-        Choose a different mock source for the eventual transaction if needed.
-      </Text>
-      <View style={ui.wrap}>
-        {cards.map((card) => (
-          <Button
-            key={card.id}
-            label={`Use source ${card.issuer}`}
-            onPress={() => onSource(card.id)}
-            disabled={busy || loading}
-            secondary
-          />
-        ))}
-      </View>
+      <CardSelector
+        cards={cards}
+        value={sourceId}
+        onChange={onSource}
+        purpose="source"
+        label="SIMULATION SOURCE"
+        disabled={loading || busy}
+      />
       <Text style={ui.h2}>Tenure preference</Text>
       <Button
         label="Use each offer's default tenure"
@@ -326,16 +314,8 @@ export function MarketplaceScreen({
           </Pressable>
         ))}
       </View>
-      {error && (
-        <Text accessibilityRole="alert" style={{ color: color.danger }}>
-          {error}
-        </Text>
-      )}
-      {selectionError && (
-        <Text accessibilityRole="alert" style={{ color: color.danger }}>
-          {selectionError}
-        </Text>
-      )}
+      {error && <ErrorNotice message={error} />}
+      {selectionError && <ErrorNotice message={selectionError} />}
       {loading && (
         <ActivityIndicator
           color={color.accent}
